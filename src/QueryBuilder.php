@@ -12,12 +12,23 @@ class QueryBuilder
     protected string $table;
     protected DatabaseAdapter $adapter;
     private WhereCompiler $compiler;
+    /** @var array<string, true>|null */
+    private $allowedFields;
 
-    public function __construct(string $table, DatabaseAdapter $adapter, array $limits = [])
+    public function __construct(string $table, DatabaseAdapter $adapter, array $limits = [], ?array $allowedFields = null)
     {
         $this->table = Sql::quote(Sql::table($table, $adapter->getPrefix()));
         $this->adapter = $adapter;
-        $this->compiler = new WhereCompiler($adapter, $limits);
+        if ($allowedFields !== null) {
+            foreach ($allowedFields as $field) {
+                if (!is_string($field)) {
+                    throw new \InvalidArgumentException('Allowed fields must be strings.');
+                }
+                Sql::identifier($field);
+            }
+        }
+        $this->allowedFields = $allowedFields === null ? null : array_fill_keys($allowedFields, true);
+        $this->compiler = new WhereCompiler($adapter, $limits, $allowedFields);
     }
 
     public function execute(array $options = []): array
@@ -51,7 +62,7 @@ class QueryBuilder
                 if (!is_string($field) || !is_bool($enabled)) {
                     throw new \InvalidArgumentException('select must be a list of names or a field => boolean map.');
                 }
-                Sql::identifier($field);
+                $this->assertField($field);
                 if ($enabled) {
                     $fields[] = $field;
                 }
@@ -64,6 +75,7 @@ class QueryBuilder
             if (!is_string($field)) {
                 throw new \InvalidArgumentException('SELECT field names must be strings.');
             }
+            $this->assertField($field);
             return Sql::quote($field);
         }, $fields));
     }
@@ -85,6 +97,7 @@ class QueryBuilder
                 if (!is_string($field) || !is_string($direction) || !in_array(strtoupper($direction), ['ASC', 'DESC'], true)) {
                     throw new \InvalidArgumentException('orderBy requires field names and asc/desc directions.');
                 }
+                $this->assertField($field);
                 $parts[] = Sql::quote($field) . ' ' . strtoupper($direction);
             }
         }
@@ -96,6 +109,15 @@ class QueryBuilder
     {
         $this->validateOptions($options);
         return (int) $this->adapter->getVar('SELECT COUNT(*) FROM ' . $this->table . $this->buildWhere($options['where'] ?? []));
+    }
+
+
+    private function assertField(string $field): void
+    {
+        Sql::identifier($field);
+        if ($this->allowedFields !== null && !isset($this->allowedFields[$field])) {
+            throw new \InvalidArgumentException('Unknown field for schema-backed model: ' . $field);
+        }
     }
 
     private function validateOptions(array $options): void

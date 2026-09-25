@@ -1,0 +1,686 @@
+{
+  "user": {
+    "name": "User",
+    "namespace": "wp",
+    "table": "users",
+    "primaryKey": "ID",
+    "fields": {
+      "ID": {
+        "type": "bigint",
+        "optional": false,
+        "column": "ID",
+        "primaryKey": true,
+        "default": "autoincrement"
+      },
+      "user_login": {
+        "type": "string",
+        "optional": false,
+        "column": "user_login"
+      },
+      "user_pass": {
+        "type": "string",
+        "optional": false,
+        "column": "user_pass"
+      },
+      "user_nicename": {
+        "type": "string",
+        "optional": false,
+        "column": "user_nicename"
+      },
+      "user_email": {
+        "type": "string",
+        "optional": false,
+        "column": "user_email"
+      },
+      "user_url": {
+        "type": "string",
+        "optional": false,
+        "column": "user_url"
+      },
+      "user_registered": {
+        "type": "datetime",
+        "optional": false,
+        "column": "user_registered",
+        "default": "now"
+      },
+      "user_activation_key": {
+        "type": "string",
+        "optional": false,
+        "column": "user_activation_key"
+      },
+      "user_status": {
+        "type": "int",
+        "optional": false,
+        "column": "user_status"
+      },
+      "display_name": {
+        "type": "string",
+        "optional": false,
+        "column": "display_name"
+      }
+    },
+    "relations": {
+      "posts": {
+        "model": "post",
+        "type": "hasMany",
+        "foreignKey": "post_author",
+        "localKey": "ID"
+      },
+      "comments": {
+        "model": "comment",
+        "type": "hasMany",
+        "foreignKey": "user_id",
+        "localKey": "ID"
+      },
+      "usermeta": {
+        "model": "usermeta",
+        "type": "hasMany",
+        "foreignKey": "user_id",
+        "localKey": "ID"
+      }
+    }
+  },
+  "usermeta": {
+    "name": "UserMeta",
+    "namespace": "wp",
+    "table": "usermeta",
+    "primaryKey": "umeta_id",
+    "fields": {
+      "umeta_id": {
+        "type": "bigint",
+        "optional": false,
+        "column": "umeta_id",
+        "primaryKey": true,
+        "default": "autoincrement"
+      },
+      "user_id": {
+        "type": "bigint",
+        "optional": false,
+        "column": "user_id",
+        "default": "0"
+      },
+      "meta_key": {
+        "type": "string",
+        "optional": true,
+        "column": "meta_key"
+      },
+      "meta_value": {
+        "type": "string",
+        "optional": true,
+        "column": "meta_value"
+      }
+    },
+    "relations": {
+      "user": {
+        "model": "user",
+        "type": "belongsTo",
+        "foreignKey": "user_id",
+        "references": "ID"
+      }
+    }
+  },
+  "post": {
+    "name": "Post",
+    "namespace": "wp",
+    "table": "posts",
+    "primaryKey": "ID",
+    "fields": {
+      "ID": {
+        "type": "bigint",
+        "optional": false,
+        "column": "ID",
+        "primaryKey": true,
+        "default": "autoincrement"
+      },
+      "post_author": {
+        "type": "bigint",
+        "optional": false,
+        "column": "post_author",
+        "default": "0"
+      },
+      "post_date": {
+        "type": "datetime",
+        "optional": false,
+        "column": "post_date",
+        "default": "now"
+      },
+      "post_date_gmt": {
+        "type": "datetime",
+        "optional": false,
+        "column": "post_date_gmt",
+        "default": "now"
+      },
+      "post_content": {
+        "type": "string",
+        "optional": false,
+        "column": "post_content"
+      },
+      "post_title": {
+        "type": "string",
+        "optional": false,
+        "column": "post_title"
+      },
+      "post_excerpt": {
+        "type": "string",
+        "optional": false,
+        "column": "post_excerpt"
+      },
+      "post_status": {
+        "type": "string",
+        "optional": false,
+        "column": "post_status",
+        "default": "publish"
+      },
+      "comment_status": {
+        "type": "string",
+        "optional": false,
+        "column": "comment_status",
+        "default": "open"
+      },
+      "ping_status": {
+        "type": "string",
+        "optional": false,
+        "column": "ping_status",
+        "default": "open"
+      },
+      "post_password": {
+        "type": "string",
+        "optional": false,
+        "column": "post_password"
+      },
+      "post_name": {
+        "type": "string",
+        "optional": false,
+        "column": "post_name"
+      },
+      "to_ping": {
+        "type": "string",
+        "optional": false,
+        "column": "to_ping"
+      },
+      "pinged": {
+        "type": "string",
+        "optional": false,
+        "column": "pinged"
+      },
+      "post_modified": {
+        "type": "datetime",
+        "optional": false,
+        "column": "post_modified",
+        "default": "now"
+      },
+      "post_modified_gmt": {
+        "type": "datetime",
+        "optional": false,
+        "column": "post_modified_gmt",
+        "default": "now"
+      },
+      "post_content_filtered": {
+        "type": "string",
+        "optional": false,
+        "column": "post_content_filtered"
+      },
+      "post_parent": {
+        "type": "bigint",
+        "optional": false,
+        "column": "post_parent",
+        "default": "0"
+      },
+      "guid": {
+        "type": "string",
+        "optional": false,
+        "column": "guid"
+      },
+      "menu_order": {
+        "type": "int",
+        "optional": false,
+        "column": "menu_order"
+      },
+      "post_type": {
+        "type": "string",
+        "optional": false,
+        "column": "post_type",
+        "default": "post"
+      },
+      "post_mime_type": {
+        "type": "string",
+        "optional": false,
+        "column": "post_mime_type"
+      },
+      "comment_count": {
+        "type": "bigint",
+        "optional": false,
+        "column": "comment_count",
+        "default": "0"
+      }
+    },
+    "relations": {
+      "author": {
+        "model": "user",
+        "type": "belongsTo",
+        "foreignKey": "post_author",
+        "references": "ID"
+      },
+      "comments": {
+        "model": "comment",
+        "type": "hasMany",
+        "foreignKey": "comment_post_ID",
+        "localKey": "ID"
+      },
+      "postmeta": {
+        "model": "postmeta",
+        "type": "hasMany",
+        "foreignKey": "post_id",
+        "localKey": "ID"
+      },
+      "term_relationships": {
+        "model": "termrelationship",
+        "type": "hasMany",
+        "foreignKey": "object_id",
+        "localKey": "ID"
+      }
+    }
+  },
+  "postmeta": {
+    "name": "PostMeta",
+    "namespace": "wp",
+    "table": "postmeta",
+    "primaryKey": "meta_id",
+    "fields": {
+      "meta_id": {
+        "type": "bigint",
+        "optional": false,
+        "column": "meta_id",
+        "primaryKey": true,
+        "default": "autoincrement"
+      },
+      "post_id": {
+        "type": "bigint",
+        "optional": false,
+        "column": "post_id",
+        "default": "0"
+      },
+      "meta_key": {
+        "type": "string",
+        "optional": true,
+        "column": "meta_key"
+      },
+      "meta_value": {
+        "type": "string",
+        "optional": true,
+        "column": "meta_value"
+      }
+    },
+    "relations": {
+      "post": {
+        "model": "post",
+        "type": "belongsTo",
+        "foreignKey": "post_id",
+        "references": "ID"
+      }
+    }
+  },
+  "comment": {
+    "name": "Comment",
+    "namespace": "wp",
+    "table": "comments",
+    "primaryKey": "comment_ID",
+    "fields": {
+      "comment_ID": {
+        "type": "bigint",
+        "optional": false,
+        "column": "comment_ID",
+        "primaryKey": true,
+        "default": "autoincrement"
+      },
+      "comment_post_ID": {
+        "type": "bigint",
+        "optional": false,
+        "column": "comment_post_ID",
+        "default": "0"
+      },
+      "comment_author": {
+        "type": "string",
+        "optional": false,
+        "column": "comment_author"
+      },
+      "comment_author_email": {
+        "type": "string",
+        "optional": false,
+        "column": "comment_author_email"
+      },
+      "comment_author_url": {
+        "type": "string",
+        "optional": false,
+        "column": "comment_author_url"
+      },
+      "comment_author_IP": {
+        "type": "string",
+        "optional": false,
+        "column": "comment_author_IP"
+      },
+      "comment_date": {
+        "type": "datetime",
+        "optional": false,
+        "column": "comment_date",
+        "default": "now"
+      },
+      "comment_date_gmt": {
+        "type": "datetime",
+        "optional": false,
+        "column": "comment_date_gmt",
+        "default": "now"
+      },
+      "comment_content": {
+        "type": "string",
+        "optional": false,
+        "column": "comment_content"
+      },
+      "comment_karma": {
+        "type": "int",
+        "optional": false,
+        "column": "comment_karma"
+      },
+      "comment_approved": {
+        "type": "string",
+        "optional": false,
+        "column": "comment_approved",
+        "default": "1"
+      },
+      "comment_agent": {
+        "type": "string",
+        "optional": false,
+        "column": "comment_agent"
+      },
+      "comment_type": {
+        "type": "string",
+        "optional": false,
+        "column": "comment_type",
+        "default": "comment"
+      },
+      "comment_parent": {
+        "type": "bigint",
+        "optional": false,
+        "column": "comment_parent",
+        "default": "0"
+      },
+      "user_id": {
+        "type": "bigint",
+        "optional": false,
+        "column": "user_id",
+        "default": "0"
+      }
+    },
+    "relations": {
+      "post": {
+        "model": "post",
+        "type": "belongsTo",
+        "foreignKey": "comment_post_ID",
+        "references": "ID"
+      },
+      "user": {
+        "model": "user",
+        "type": "belongsTo",
+        "foreignKey": "user_id",
+        "references": "ID"
+      },
+      "commentmeta": {
+        "model": "commentmeta",
+        "type": "hasMany",
+        "foreignKey": "comment_id",
+        "localKey": "comment_ID"
+      }
+    }
+  },
+  "commentmeta": {
+    "name": "CommentMeta",
+    "namespace": "wp",
+    "table": "commentmeta",
+    "primaryKey": "meta_id",
+    "fields": {
+      "meta_id": {
+        "type": "bigint",
+        "optional": false,
+        "column": "meta_id",
+        "primaryKey": true,
+        "default": "autoincrement"
+      },
+      "comment_id": {
+        "type": "bigint",
+        "optional": false,
+        "column": "comment_id",
+        "default": "0"
+      },
+      "meta_key": {
+        "type": "string",
+        "optional": true,
+        "column": "meta_key"
+      },
+      "meta_value": {
+        "type": "string",
+        "optional": true,
+        "column": "meta_value"
+      }
+    },
+    "relations": {
+      "comment": {
+        "model": "comment",
+        "type": "belongsTo",
+        "foreignKey": "comment_id",
+        "references": "comment_ID"
+      }
+    }
+  },
+  "term": {
+    "name": "Term",
+    "namespace": "wp",
+    "table": "terms",
+    "primaryKey": "term_id",
+    "fields": {
+      "term_id": {
+        "type": "bigint",
+        "optional": false,
+        "column": "term_id",
+        "primaryKey": true,
+        "default": "autoincrement"
+      },
+      "name": {
+        "type": "string",
+        "optional": false,
+        "column": "name"
+      },
+      "slug": {
+        "type": "string",
+        "optional": false,
+        "column": "slug"
+      },
+      "term_group": {
+        "type": "bigint",
+        "optional": false,
+        "column": "term_group",
+        "default": "0"
+      }
+    },
+    "relations": {
+      "taxonomies": {
+        "model": "termtaxonomy",
+        "type": "hasMany",
+        "foreignKey": "term_id",
+        "localKey": "term_id"
+      },
+      "termmeta": {
+        "model": "termmeta",
+        "type": "hasMany",
+        "foreignKey": "term_id",
+        "localKey": "term_id"
+      }
+    }
+  },
+  "termtaxonomy": {
+    "name": "TermTaxonomy",
+    "namespace": "wp",
+    "table": "term_taxonomy",
+    "primaryKey": "term_taxonomy_id",
+    "fields": {
+      "term_taxonomy_id": {
+        "type": "bigint",
+        "optional": false,
+        "column": "term_taxonomy_id",
+        "primaryKey": true,
+        "default": "autoincrement"
+      },
+      "term_id": {
+        "type": "bigint",
+        "optional": false,
+        "column": "term_id",
+        "default": "0"
+      },
+      "taxonomy": {
+        "type": "string",
+        "optional": false,
+        "column": "taxonomy"
+      },
+      "description": {
+        "type": "string",
+        "optional": false,
+        "column": "description"
+      },
+      "parent": {
+        "type": "bigint",
+        "optional": false,
+        "column": "parent",
+        "default": "0"
+      },
+      "count": {
+        "type": "bigint",
+        "optional": false,
+        "column": "count",
+        "default": "0"
+      }
+    },
+    "relations": {
+      "term": {
+        "model": "term",
+        "type": "belongsTo",
+        "foreignKey": "term_id",
+        "references": "term_id"
+      },
+      "relationships": {
+        "model": "termrelationship",
+        "type": "hasMany",
+        "foreignKey": "term_taxonomy_id",
+        "localKey": "term_taxonomy_id"
+      }
+    }
+  },
+  "termrelationship": {
+    "name": "TermRelationship",
+    "namespace": "wp",
+    "table": "term_relationships",
+    "primaryKey": "id",
+    "fields": {
+      "object_id": {
+        "type": "bigint",
+        "optional": false,
+        "column": "object_id"
+      },
+      "term_taxonomy_id": {
+        "type": "bigint",
+        "optional": false,
+        "column": "term_taxonomy_id",
+        "default": "0"
+      },
+      "term_order": {
+        "type": "int",
+        "optional": false,
+        "column": "term_order"
+      }
+    },
+    "relations": {
+      "post": {
+        "model": "post",
+        "type": "belongsTo",
+        "foreignKey": "object_id",
+        "references": "ID"
+      },
+      "term_taxonomy": {
+        "model": "termtaxonomy",
+        "type": "belongsTo",
+        "foreignKey": "term_taxonomy_id",
+        "references": "term_taxonomy_id"
+      }
+    }
+  },
+  "termmeta": {
+    "name": "TermMeta",
+    "namespace": "wp",
+    "table": "termmeta",
+    "primaryKey": "meta_id",
+    "fields": {
+      "meta_id": {
+        "type": "bigint",
+        "optional": false,
+        "column": "meta_id",
+        "primaryKey": true,
+        "default": "autoincrement"
+      },
+      "term_id": {
+        "type": "bigint",
+        "optional": false,
+        "column": "term_id",
+        "default": "0"
+      },
+      "meta_key": {
+        "type": "string",
+        "optional": true,
+        "column": "meta_key"
+      },
+      "meta_value": {
+        "type": "string",
+        "optional": true,
+        "column": "meta_value"
+      }
+    },
+    "relations": {
+      "term": {
+        "model": "term",
+        "type": "belongsTo",
+        "foreignKey": "term_id",
+        "references": "term_id"
+      }
+    }
+  },
+  "option": {
+    "name": "Option",
+    "namespace": "wp",
+    "table": "options",
+    "primaryKey": "option_id",
+    "fields": {
+      "option_id": {
+        "type": "bigint",
+        "optional": false,
+        "column": "option_id",
+        "primaryKey": true,
+        "default": "autoincrement"
+      },
+      "option_name": {
+        "type": "string",
+        "optional": false,
+        "column": "option_name",
+        "unique": true
+      },
+      "option_value": {
+        "type": "string",
+        "optional": false,
+        "column": "option_value"
+      },
+      "autoload": {
+        "type": "string",
+        "optional": false,
+        "column": "autoload",
+        "default": "yes"
+      }
+    },
+    "relations": {}
+  }
+}

@@ -3,6 +3,7 @@
 namespace Plasma;
 
 use Plasma\Adapter\DatabaseAdapter;
+use Plasma\Adapter\SchemaProvidingAdapter;
 use Plasma\Internal\Sql;
 
 /**
@@ -72,6 +73,15 @@ class Plasma
     $this->adapter = $adapter;
     $this->prefix = $adapter->getPrefix();
 
+    if ($adapter instanceof SchemaProvidingAdapter) {
+      foreach ($adapter->defaultSchemas() as $defaultSchema) {
+        if (!is_array($defaultSchema)) {
+          throw new \RuntimeException('Adapter default schemas must be PHP arrays.');
+        }
+        $this->registerSchema($defaultSchema);
+      }
+    }
+
     foreach ($schemaPaths as $source) {
       if (is_array($source)) {
         $this->registerSchema($source);
@@ -127,7 +137,7 @@ class Plasma
         }
         Sql::identifier($relation);
         Sql::identifier($config['model']);
-        foreach (['foreignKey', 'localKey'] as $key) {
+        foreach (['foreignKey', 'localKey', 'references'] as $key) {
           if (isset($config[$key])) {
             if (!is_string($config[$key])) {
               throw new \InvalidArgumentException('Relation keys must be strings.');
@@ -208,8 +218,8 @@ class Plasma
     }
     foreach ($this->schema as $key => $definition) {
       $full = $this->logicalTableName($definition['table']);
-      $logical = $this->prefix !== '' && strpos($full, $this->prefix) === 0
-        ? substr($full, strlen($this->prefix)) : $full;
+      $logical = $definition['logicalTable'] ?? ($this->prefix !== '' && strpos($full, $this->prefix) === 0
+        ? substr($full, strlen($this->prefix)) : $full);
       if (in_array($input, array_map('strtolower', [$key, $full, $logical, $definition['table']]), true)) {
         return $key;
       }
@@ -374,7 +384,8 @@ class Plasma
   private function buildFromSchema(string $name): Model
   {
     $def = $this->schema[$name];
-    $table = $this->logicalTableName($def['table']);
+    // Keep schema table definitions logical/absolute until the adapter boundary.
+    $table = $def['table'];
     $primaryKey = $def['primaryKey'] ?? 'id';
 
     $fieldTypes = SchemaFieldCaster::fieldTypesFromSchema($def['fields'] ?? []);
@@ -392,7 +403,7 @@ class Plasma
         ? $this->schema[$relModelKey]['table']
         : '__PREFIX__' . $relModelKey;
 
-      $relTable = $this->logicalTableName($relTableRaw);
+      $relTable = $relTableRaw;
 
       switch ($rel['type']) {
         case 'hasMany':
@@ -407,7 +418,8 @@ class Plasma
 
         case 'belongsTo':
           $foreignKey = $rel['foreignKey'] ?? $relModelKey . '_id';
-          $model->belongsTo($relName, $relTable, $foreignKey, $rel['localKey'] ?? ($this->schema[$relModelKey]['primaryKey'] ?? 'id'), $relModelKey);
+          $targetKey = $rel['localKey'] ?? $rel['references'] ?? ($this->schema[$relModelKey]['primaryKey'] ?? 'id');
+          $model->belongsTo($relName, $relTable, $foreignKey, $targetKey, $relModelKey);
           break;
       }
     }

@@ -21,6 +21,8 @@ $rows = $products->findMany([
 
 `count(['where' => ...])` counts all matching rows, independently of pagination. `exists($where)` returns a boolean. Both count and reads use the same predicate compiler.
 
+For schema-backed models, fields used by `where`, `select`, `orderBy`, and writes must exist in the model schema; unknown fields are rejected before SQL compilation. Dynamic models still validate SQL identifier syntax but have no metadata allowlist.
+
 `take` and `skip` require non-negative PHP integers. `take: 0` returns no rows. Offset-only queries work without an explicit take. An empty select means all fields; a nonempty selection enabling no fields is rejected. Sorting accepts `asc` or `desc` only. Unsupported query options are rejected rather than ignored.
 
 ## Supported scalar filters
@@ -58,4 +60,4 @@ $affected = $products->delete(['where' => ['id' => $row['id']]]);
 
 This is a documented Prisma-inspired subset, not Prisma Client. No relation filters (`some`, `every`, `none`), JSON-path filters, `mode`, cursor pagination, nested writes, composite primary keys, aggregates, joins, or migrations. Use application-owned SQL where the model API is insufficient.
 
-Schema metadata does not authorize a query. See [the security boundary](../SECURITY.md).
+Schema metadata validates model fields; it does not authenticate a caller or authorize access to a model/row. See [the security boundary](../SECURITY.md).

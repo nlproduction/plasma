@@ -3,10 +3,11 @@
 namespace Plasma\WordPress;
 
 use Plasma\Adapter\DatabaseAdapter;
+use Plasma\Adapter\SchemaProvidingAdapter;
 use Plasma\Internal\Sql;
 
 /** WordPress adapter; the application supplies its own prefix suffix. */
-class WpdbAdapter implements DatabaseAdapter
+class WpdbAdapter implements DatabaseAdapter, SchemaProvidingAdapter
 {
     /** @var \wpdb */
     private $wpdb;
@@ -143,4 +144,11 @@ class WpdbAdapter implements DatabaseAdapter
     public function inTransaction(): bool { return $this->transactionDepth > 0; }
     public function getTransactionDepth(): int { return $this->transactionDepth; }
     public function getPrefix(): string { return $this->wpdb->prefix . $this->tablePrefix; }
+
+    /** WordPress core models are available automatically to every Plasma client using this adapter. */
+    public function defaultSchemas(): array
+    {
+        $basePrefix = isset($this->wpdb->base_prefix) ? $this->wpdb->base_prefix : $this->wpdb->prefix;
+        return [WordPressSchema::load($this->wpdb->prefix, $basePrefix)];
+    }
 }

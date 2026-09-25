@@ -1,6 +1,6 @@
 {
   "name": "nlproduction/plasma",
-  "description": "Prisma-style queries for plain PHP and WordPress. Lightweight ORM with runtime schemas, relations and PDO/wpdb adapters. By the developers of MapSVG.",
+  "description": "Schema-aware Prisma-style ORM for PHP and WordPress with bundled WordPress core metadata, relations, and PDO/wpdb adapters. By the developers of MapSVG.",
   "type": "library",
   "license": "MIT",
   "require": {

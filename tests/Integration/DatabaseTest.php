@@ -30,7 +30,7 @@ beforeEach(function () {
         ],
         'Book' => [
             'table' => 'books', 'primaryKey' => 'id',
-            'fields' => ['id' => ['type' => 'int'], 'author_id' => ['type' => 'int'], 'active' => ['type' => 'boolean'], 'meta' => ['type' => 'json'], 'big_value' => ['type' => 'bigint']],
+            'fields' => ['id' => ['type' => 'int'], 'author_id' => ['type' => 'int'], 'title' => ['type' => 'string'], 'active' => ['type' => 'boolean'], 'price' => ['type' => 'int'], 'meta' => ['type' => 'json'], 'big_value' => ['type' => 'bigint']],
             'relations' => ['author' => ['type' => 'belongsTo', 'model' => 'Author', 'foreignKey' => 'author_id']],
         ],
     ];

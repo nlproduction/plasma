@@ -19,4 +19,4 @@ $rows = $db->products->findMany(['where' => ['price' => ['lt' => 20]]]);
 
 The complete executable version is in [examples/sqlite.php](../examples/sqlite.php).
 
-For [WordPress](adapters/wpdb-adapter.md), use `$wpdb`. For [MySQL/MariaDB](adapters/pdo-adapter.md), supply a PDO DSN and credentials from environment configuration. Add [schema metadata](schema.md) only when you need named models, field casting, or relations.
+For [WordPress](adapters/wpdb-adapter.md), `WpdbAdapter` uses the existing `$wpdb` connection and automatically registers the bundled WordPress core schema. For [MySQL/MariaDB](adapters/pdo-adapter.md), supply a PDO DSN and credentials from environment configuration. Add [schema metadata](schema.md) for your own named models, field casting, field validation, or relations.

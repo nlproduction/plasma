@@ -10,10 +10,21 @@ final class WhereCompiler
     private DatabaseAdapter $adapter;
     private int $nodes = 0;
     private array $limits;
+    /** @var array<string, true>|null */
+    private $allowedFields;
 
-    public function __construct(DatabaseAdapter $adapter, array $limits = [])
+    public function __construct(DatabaseAdapter $adapter, array $limits = [], ?array $allowedFields = null)
     {
         $this->adapter = $adapter;
+        if ($allowedFields !== null) {
+            foreach ($allowedFields as $field) {
+                if (!is_string($field)) {
+                    throw new \InvalidArgumentException('Allowed fields must be strings.');
+                }
+                Sql::identifier($field);
+            }
+        }
+        $this->allowedFields = $allowedFields === null ? null : array_fill_keys($allowedFields, true);
         $this->limits = $limits + ['maxDepth' => 64, 'maxConditions' => 1000, 'maxListValues' => 1000];
         foreach ($this->limits as $name => $value) {
             if (!in_array($name, ['maxDepth', 'maxConditions', 'maxListValues'], true) || !is_int($value) || $value < 1) {
@@ -46,6 +57,7 @@ final class WhereCompiler
             if (in_array($field, ['AND', 'OR', 'NOT'], true)) {
                 $parts[] = $this->booleanGroup($field, $value, $depth + 1);
             } else {
+                $this->assertField($field);
                 $parts[] = $this->field(Sql::quote($field), $value, $depth + 1);
             }
         }
@@ -146,6 +158,15 @@ final class WhereCompiler
             return $operator === 'OR' ? '0 = 1' : '1 = 1';
         }
         return count($parts) === 1 ? $parts[0] : '(' . implode(' ' . $operator . ' ', $parts) . ')';
+    }
+
+
+    private function assertField(string $field): void
+    {
+        Sql::identifier($field);
+        if ($this->allowedFields !== null && !isset($this->allowedFields[$field])) {
+            throw new \InvalidArgumentException('Unknown field for schema-backed model: ' . $field);
+        }
     }
 
     public static function isList(array $value): bool
