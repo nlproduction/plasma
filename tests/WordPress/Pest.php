@@ -25,6 +25,7 @@ function mockWpdb()
       return "'" . addslashes((string) $params[$index++]) . "'";
     }, $sql);
   });
+  $wpdb->shouldReceive('query')->andReturn(0)->byDefault();
   $wpdb->shouldReceive('insert')->andReturn(1)->byDefault();
   $wpdb->shouldReceive('update')->andReturn(1)->byDefault();
   $wpdb->shouldReceive('delete')->andReturn(1)->byDefault();

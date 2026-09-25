@@ -3,11 +3,12 @@
 namespace Plasma\WordPress;
 
 use Plasma\Adapter\DatabaseAdapter;
+use Plasma\Adapter\DialectAwareAdapter;
 use Plasma\Adapter\SchemaProvidingAdapter;
 use Plasma\Internal\Sql;
 
 /** WordPress adapter; the application supplies its own prefix suffix. */
-class WpdbAdapter implements DatabaseAdapter, SchemaProvidingAdapter
+class WpdbAdapter implements DatabaseAdapter, SchemaProvidingAdapter, DialectAwareAdapter
 {
     /** @var \wpdb */
     private $wpdb;
@@ -33,6 +34,13 @@ class WpdbAdapter implements DatabaseAdapter, SchemaProvidingAdapter
         $rows = $this->wpdb->get_results($sql, 'ARRAY_A');
         $this->checkError($rows);
         return $rows ?: [];
+    }
+
+    public function execute(string $sql): int
+    {
+        $affected = $this->wpdb->query($sql);
+        $this->checkError($affected);
+        return (int) $affected;
     }
 
     public function prepare(string $sql, ...$params): string
@@ -144,6 +152,7 @@ class WpdbAdapter implements DatabaseAdapter, SchemaProvidingAdapter
     public function inTransaction(): bool { return $this->transactionDepth > 0; }
     public function getTransactionDepth(): int { return $this->transactionDepth; }
     public function getPrefix(): string { return $this->wpdb->prefix . $this->tablePrefix; }
+    public function getDialect(): string { return 'mysql'; }
 
     /** WordPress core models are available automatically to every Plasma client using this adapter. */
     public function defaultSchemas(): array

@@ -25,6 +25,24 @@ For schema-backed models, fields used by `where`, `select`, `orderBy`, and write
 
 `take` and `skip` require non-negative PHP integers. `take: 0` returns no rows. Offset-only queries work without an explicit take. An empty select means all fields; a nonempty selection enabling no fields is rejected. Sorting accepts `asc` or `desc` only. Unsupported query options are rejected rather than ignored.
 
+## Distinct values
+
+```php
+$categories = $products->distinct(
+    ['category'],
+    ['where' => ['active' => true], 'orderBy' => ['category' => 'asc']]
+);
+
+$tuples = $products->distinct(
+    ['category', 'active'],
+    ['orderBy' => [['category' => 'asc'], ['active' => 'asc']]]
+);
+```
+
+A single selected field returns a scalar list. Multiple fields return associative rows keyed by field name. Schema casting is applied to the result, so booleans, integers, JSON, and other declared types are hydrated consistently with `findMany()`.
+
+`distinct()` accepts `where`, `orderBy`, `take`, and `skip`. It rejects `select` and `include`; selected fields must be unique, declared by schema-backed models, and are the only fields allowed in `orderBy`. This restriction keeps the generated `SELECT DISTINCT` portable across the supported MySQL/MariaDB and SQLite dialects.
+
 ## Supported scalar filters
 
 - Equality: `['name' => 'Coffee']` or `['name' => ['equals' => 'Coffee']]`.
@@ -54,10 +72,34 @@ $affected = $products->delete(['where' => ['id' => $row['id']]]);
 
 `create()` returns the inserted row. `update()` and `delete()` return affected-row counts, not a Prisma-style record. The `create($data)` and `delete($where)` shorthand forms remain available. `updateOne($id, $data)` returns the resulting row or null; `deleteOne($id)` returns the affected count.
 
-**Writes use equality-only filters** (`field => scalar/null`). Recursive read filters do not apply to update/delete. Missing/empty filters and nested mutation operators are rejected. Failed database operations throw. Zero affected rows is a successful no-op, not an error.
+### Bulk insert and upsert
+
+```php
+$processed = $products->createMany([
+    'data' => [
+        ['sku' => 'A-1', 'name' => 'Coffee'],
+        ['name' => 'Tea', 'sku' => 'B-2'], // key order may differ
+    ],
+]);
+
+$processed = $products->upsertMany([
+    'data' => [
+        ['sku' => 'A-1', 'name' => 'Coffee beans'],
+        ['sku' => 'C-3', 'name' => 'Cocoa'],
+    ],
+    'conflictFields' => ['sku'],
+    'updateFields' => ['name'],
+]);
+```
+
+Both methods also accept the row list directly as shorthand. Rows must be nonempty associative arrays with the same column set; schema allowlists and serialization apply before SQL execution. Batches are bounded to 1,000 rows and execute as one statement without per-row readback. They return the number of input rows processed after successful execution, not the connection's affected-row count. Empty batches return `0`.
+
+`upsertMany()` defaults `conflictFields` to the model primary key and `updateFields` to all other supplied columns. Conflict and update fields must be present in every row, valid for the model, unique within their lists, and non-overlapping. MySQL/MariaDB chooses the conflicting unique key according to database constraints (`ON DUPLICATE KEY UPDATE`); SQLite uses the explicit `conflictFields` target (`ON CONFLICT`). Unsupported adapter dialects fail explicitly.
+
+**Ordinary `update()` and `delete()` use equality-only filters** (`field => scalar/null`). Recursive read filters do not apply to update/delete. Missing/empty filters and nested mutation operators are rejected. Failed database operations throw. Zero affected rows is a successful no-op, not an error.
 
 ## Scope
 
-This is a documented Prisma-inspired subset, not Prisma Client. No relation filters (`some`, `every`, `none`), JSON-path filters, `mode`, cursor pagination, nested writes, composite primary keys, aggregates, joins, or migrations. Use application-owned SQL where the model API is insufficient.
+This is a documented Prisma-inspired subset, not Prisma Client. No relation filters (`some`, `every`, `none`), JSON-path filters, `mode`, cursor pagination, nested writes, composite primary keys, aggregates beyond `distinct`, joins, or migrations. Use application-owned SQL where the model API is insufficient.
 
 Schema metadata validates model fields; it does not authenticate a caller or authorize access to a model/row. See [the security boundary](../SECURITY.md).

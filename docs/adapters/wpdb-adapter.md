@@ -67,8 +67,13 @@ On multisite, site tables use `$wpdb->prefix` and the bundled `user` / `usermeta
 `Plasma\WordPress\DB::configure($sources, $prefix)` and `DB::get()` provide an optional singleton. Bundled WordPress metadata is still loaded automatically; `$sources` are only additional application schemas.
 
 Prefer explicit `Plasma` instances in reusable plugins when several independent consumers may share one PHP process.
+Wrapping `WpdbAdapter` with `EventDatabaseAdapter` remains transparent: the decorator forwards bundled WordPress schemas and reports the underlying MySQL dialect.
 
-## Database errors and transactions
+## Statements, errors, and transactions
+
+Use `query()` for row-returning SQL and `execute()` for trusted DDL or other non-row statements. `execute()` delegates to `$wpdb->query()` and returns its integer result. DDL counts vary by WordPress/MySQL behavior, so treat the number as meaningful mainly for DML.
+
+Schema-backed `createMany()`, `upsertMany()`, and `distinct()` use the same prefix, field validation, casting, preparation, and error boundary. MySQL upsert behavior is driven by actual primary and unique constraints.
 
 The adapter reports wpdb failures as exceptions instead of turning them into empty successful results. Nested transactions use savepoints and preserve transaction depth if a command fails. Transaction commands require a transactional database engine.
 

@@ -1,5 +1,35 @@
 <?php
 
+
+/* Test-only fallback for Termwind on hosts without ext-mbstring. */
+if (!function_exists('mb_strimwidth')) {
+  function mb_strimwidth($string, $start, $width, $trimMarker = '', $encoding = null)
+  {
+    $string = (string) $string;
+    $encoding = $encoding ?: 'UTF-8';
+    $slice = mb_substr($string, (int) $start, null, $encoding);
+    if (mb_strwidth($slice, $encoding) <= (int) $width) {
+      return $slice;
+    }
+
+    $available = max(0, (int) $width - mb_strwidth((string) $trimMarker, $encoding));
+    $result = '';
+    $resultWidth = 0;
+    $length = mb_strlen($slice, $encoding);
+    for ($index = 0; $index < $length; $index++) {
+      $character = mb_substr($slice, $index, 1, $encoding);
+      $characterWidth = mb_strwidth($character, $encoding);
+      if ($resultWidth + $characterWidth > $available) {
+        break;
+      }
+      $result .= $character;
+      $resultWidth += $characterWidth;
+    }
+
+    return $result . (string) $trimMarker;
+  }
+}
+
 /*
 |--------------------------------------------------------------------------
 | Test Case

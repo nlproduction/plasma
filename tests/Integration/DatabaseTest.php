@@ -20,8 +20,8 @@ beforeEach(function () {
     $this->prefix = $this->adapter->getPrefix();
     $auto = $this->adapter->getPdo()->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
         ? 'INTEGER PRIMARY KEY AUTOINCREMENT' : 'INTEGER PRIMARY KEY AUTO_INCREMENT';
-    $this->adapter->query('CREATE TABLE ' . $this->prefix . 'authors (ID ' . $auto . ', name VARCHAR(255))');
-    $this->adapter->query('CREATE TABLE ' . $this->prefix . 'books (id ' . $auto . ', author_id INTEGER, title VARCHAR(255), active INTEGER, price INTEGER, meta TEXT, big_value VARCHAR(30))');
+    $this->adapter->execute('CREATE TABLE ' . $this->prefix . 'authors (ID ' . $auto . ', name VARCHAR(255))');
+    $this->adapter->execute('CREATE TABLE ' . $this->prefix . 'books (id ' . $auto . ', author_id INTEGER, title VARCHAR(255), active INTEGER, price INTEGER, meta TEXT, big_value VARCHAR(30))');
     $this->schema = [
         'Author' => [
             'table' => '__PREFIX__authors', 'primaryKey' => 'ID',
@@ -41,7 +41,7 @@ afterEach(function () {
     if (isset($this->adapter)) {
         while ($this->adapter->inTransaction()) { $this->adapter->rollback(); }
         foreach (['books', 'authors'] as $name) {
-            $this->adapter->query('DROP TABLE IF EXISTS ' . $this->prefix . $name);
+            $this->adapter->execute('DROP TABLE IF EXISTS ' . $this->prefix . $name);
         }
     }
 });
@@ -167,6 +167,8 @@ it('emits SQL for reads and correctly delegates count through event decorators',
 it('fails rather than hiding database errors or unsafe mutation filters', function () {
     expect(fn() => $this->adapter->getVar('SELECT * FROM no_such_table'))->toThrow(PDOException::class);
     expect(fn() => $this->adapter->query('SELECT * FROM no_such_table'))->toThrow(PDOException::class);
+    expect(fn() => $this->adapter->execute('UPDATE no_such_table SET active = 1'))
+        ->toThrow(PDOException::class);
     expect(fn() => $this->db->Book->delete([]))->toThrow(InvalidArgumentException::class);
     expect(fn() => $this->db->Book->update(['where' => ['id' => ['gt' => 1]], 'data' => ['title' => 'x']]))->toThrow(InvalidArgumentException::class);
     expect(fn() => $this->adapter->insert('books', ['title`' => 'x']))->toThrow(InvalidArgumentException::class);
@@ -209,4 +211,189 @@ it('preserves unsigned BigInt values and refuses invalid JSON', function () {
     expect(SchemaFieldCaster::serializeValue('false', 'boolean'))->toBe(0);
     expect(fn() => $this->db->Book->create(['meta' => '{invalid']))->toThrow(JsonException::class);
     expect(SchemaFieldCaster::hydrateValue('42', 'bigint'))->toBe(42);
+});
+
+
+it('executes non-row statements through the dedicated adapter API', function () {
+    $table = $this->prefix . 'statements';
+    try {
+        expect($this->adapter->execute(
+            'CREATE TABLE ' . $table . ' (id INTEGER PRIMARY KEY, name VARCHAR(50))'
+        ))->toBeInt();
+        expect($this->adapter->execute(
+            "INSERT INTO {$table} (id, name) VALUES (1, 'ready')"
+        ))->toBe(1);
+        expect($this->adapter->query('SELECT name FROM ' . $table))->toBe([
+            ['name' => 'ready'],
+        ]);
+        expect($this->adapter->getDialect())->toBeIn(['sqlite', 'mysql']);
+    } finally {
+        $this->adapter->execute('DROP TABLE IF EXISTS ' . $table);
+    }
+});
+
+it('inserts and upserts typed homogeneous batches without row readback', function () {
+    $inserted = $this->db->Book->createMany(['data' => [
+        ['id' => 101, 'title' => 'Bulk A', 'active' => true, 'price' => 10, 'meta' => ['batch' => 1]],
+        ['price' => 20, 'meta' => ['batch' => 2], 'active' => false, 'title' => 'Bulk B', 'id' => 102],
+    ]]);
+
+    expect($inserted)->toBe(2);
+    $initial = $this->db->Book->findMany([
+        'where' => ['id' => ['in' => [101, 102]]],
+        'orderBy' => ['id' => 'asc'],
+    ]);
+    expect($initial)->toHaveCount(2)
+        ->and($initial[0]['active'])->toBeTrue()
+        ->and($initial[0]['meta'])->toBe(['batch' => 1]);
+
+    $processed = $this->db->Book->upsertMany([
+        'data' => [
+            ['id' => 101, 'title' => 'Bulk A updated', 'active' => false, 'price' => 11],
+            ['id' => 103, 'title' => 'Bulk C', 'active' => true, 'price' => 30],
+        ],
+        'conflictFields' => ['id'],
+        'updateFields' => ['title', 'active', 'price'],
+    ]);
+
+    expect($processed)->toBe(2);
+    $after = $this->db->Book->findMany([
+        'where' => ['id' => ['in' => [101, 102, 103]]],
+        'orderBy' => ['id' => 'asc'],
+    ]);
+    expect(array_column($after, 'title'))->toBe([
+        'Bulk A updated',
+        'Bulk B',
+        'Bulk C',
+    ]);
+    expect($after[0]['active'])->toBeFalse()
+        ->and($after[0]['meta'])->toBe(['batch' => 1]);
+});
+
+it('rejects malformed or oversized bulk batches before execution', function () {
+    expect(fn() => $this->db->Book->createMany(['data' => [
+        ['id' => 201, 'title' => 'A'],
+        ['id' => 202, 'price' => 20],
+    ]]))->toThrow(InvalidArgumentException::class);
+
+    expect(fn() => $this->db->Book->createMany([
+        ['id' => 201, 'unknown' => 'x'],
+    ]))->toThrow(InvalidArgumentException::class);
+
+    expect(fn() => $this->db->Book->createMany([
+        'data' => [['id' => 201, 'title' => 'A']],
+        'skipDuplicates' => true,
+    ]))->toThrow(InvalidArgumentException::class);
+
+    $tooMany = [];
+    for ($index = 0; $index < 1001; $index++) {
+        $tooMany[] = ['title' => 'Row ' . $index];
+    }
+    expect(fn() => $this->db->Book->createMany($tooMany))
+        ->toThrow(InvalidArgumentException::class);
+
+    expect(fn() => $this->db->Book->upsertMany([
+        'data' => [['id' => 201, 'title' => 'A']],
+        'conflictFields' => ['id'],
+        'updateFields' => ['id'],
+    ]))->toThrow(InvalidArgumentException::class);
+
+    expect($this->db->Book->createMany([]))->toBe(0);
+    expect($this->db->Book->upsertMany([]))->toBe(0);
+    expect(fn() => $this->db->Book->upsertMany([
+        'data' => [],
+        'conflictFields' => 'id',
+    ]))->toThrow(InvalidArgumentException::class);
+    expect(fn() => $this->db->Book->upsertMany([
+        'data' => [],
+        'conflictFields' => ['unknown'],
+    ]))->toThrow(InvalidArgumentException::class);
+    expect(fn() => $this->db->Book->upsertMany([
+        'data' => [],
+        'conflictFields' => ['id'],
+        'updateFields' => ['id'],
+    ]))->toThrow(InvalidArgumentException::class);
+});
+
+it('returns typed distinct scalars and tuples with validated ordering and pagination', function () {
+    $this->db->Book->createMany([
+        ['id' => 401, 'title' => 'A', 'active' => true, 'price' => 10],
+        ['id' => 402, 'title' => 'B', 'active' => true, 'price' => 10],
+        ['id' => 403, 'title' => 'C', 'active' => false, 'price' => 20],
+        ['id' => 404, 'title' => 'D', 'active' => false, 'price' => 20],
+    ]);
+
+    expect($this->db->Book->distinct(
+        ['active'],
+        ['orderBy' => ['active' => 'asc']]
+    ))->toBe([false, true]);
+
+    expect($this->db->Book->distinct(
+        ['active', 'price'],
+        ['orderBy' => [['active' => 'asc'], ['price' => 'asc']]]
+    ))->toBe([
+        ['active' => false, 'price' => 20],
+        ['active' => true, 'price' => 10],
+    ]);
+
+    expect($this->db->Book->distinct(
+        ['price'],
+        ['orderBy' => ['price' => 'asc'], 'skip' => 1, 'take' => 1]
+    ))->toBe([20]);
+
+    expect($this->db->Book->distinct(
+        ['price'],
+        ['where' => ['active' => true], 'orderBy' => ['price' => 'asc']]
+    ))->toBe([10]);
+
+    expect(fn() => $this->db->Book->distinct([]))
+        ->toThrow(InvalidArgumentException::class);
+    expect(fn() => $this->db->Book->distinct(['unknown']))
+        ->toThrow(InvalidArgumentException::class);
+    expect(fn() => $this->db->Book->distinct(['price', 'price']))
+        ->toThrow(InvalidArgumentException::class);
+    expect(fn() => $this->db->Book->distinct(
+        ['price'],
+        ['orderBy' => ['title' => 'asc']]
+    ))->toThrow(InvalidArgumentException::class);
+});
+
+
+it('processes a 500-row insert and upsert in bounded single statements', function () {
+    $rows = [];
+    $updates = [];
+    for ($index = 0; $index < 500; $index++) {
+        $id = 1000 + $index;
+        $rows[] = [
+            'id' => $id,
+            'title' => 'Batch ' . $index,
+            'active' => false,
+            'price' => $index,
+        ];
+        $updates[] = [
+            'id' => $id,
+            'title' => 'Updated ' . $index,
+            'active' => true,
+            'price' => $index + 1,
+        ];
+    }
+
+    expect($this->db->Book->createMany($rows))->toBe(500);
+    expect($this->db->Book->upsertMany([
+        'data' => $updates,
+        'conflictFields' => ['id'],
+        'updateFields' => ['title', 'active', 'price'],
+    ]))->toBe(500);
+
+    expect($this->db->Book->count())->toBe(500);
+    expect($this->db->Book->findUnique(['id' => 1000]))->toMatchArray([
+        'title' => 'Updated 0',
+        'active' => true,
+        'price' => 1,
+    ]);
+    expect($this->db->Book->findUnique(['id' => 1499]))->toMatchArray([
+        'title' => 'Updated 499',
+        'active' => true,
+        'price' => 500,
+    ]);
 });

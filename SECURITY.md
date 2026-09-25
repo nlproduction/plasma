@@ -8,9 +8,9 @@ Trusted PHP code chooses adapters, tables, schema sources, and raw SQL. Authenti
 
 Schema-backed models reject undeclared fields, but schemas do not restrict trusted PHP code from opening undeclared dynamic tables. Authentication, authorization, and model/table selection still belong to the application. Reject unsupported filter features; do not replace failed filters with an empty `where`. Unknown operators and malformed options raise exceptions. Defaults bound filter depth, visited nodes, and membership-list size.
 
-Update/delete accept only nonempty scalar equality filters. They do not accept recursive read predicates. Raw SQL and `reset()` are privileged operations; never expose them to arbitrary client input. `reset()` is a destructive MySQL-specific development helper, not a migration engine.
+Update/delete accept only nonempty scalar equality filters. They do not accept recursive read predicates. Bulk writes are limited to 1,000 homogeneous rows, but applications still need authorization and request-size limits before accepting client-supplied batches. Raw SQL, `execute()`, and `reset()` are privileged operations; never expose them to arbitrary client input. `reset()` is a destructive MySQL-specific development helper, not a migration engine.
 
-PDO read filters use connection-quoted values through a one-pass formatter; PDO writes bind parameters. WordPress uses wpdb's preparation/write APIs. Never interpolate untrusted fragments yourself. SQL errors can contain implementation details; translate exceptions into safe public responses.
+PDO read filters and bulk statements use connection-quoted values through a one-pass formatter; ordinary PDO insert/update/delete calls bind parameters. WordPress uses wpdb's preparation/write APIs. Identifiers are validated separately; never interpolate untrusted fragments yourself. SQL errors can contain implementation details; translate exceptions into safe public responses.
 
 Direct writes bypass WordPress APIs, hooks, and cache invalidation. Query events can contain sensitive values; redact and restrict logs. Event listeners are observational, not authorization hooks or a guaranteed transactional outbox.
 

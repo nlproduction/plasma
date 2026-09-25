@@ -16,8 +16,17 @@ it('keeps optional Clockwork integration inert until enabled', function () {
     expect(Logger::clockworkEnabled())->toBeFalse();
 });
 
-it('runs real SQLite queries with the optional listener disabled', function () {
-    $pdo = new PdoAdapter(['dsn' => 'sqlite::memory:']);
+it('runs real database queries with the optional listener disabled', function () {
+    $dsn = getenv('PLASMA_TEST_DSN');
+    if (!$dsn && !in_array('sqlite', PDO::getAvailableDrivers(), true)) {
+        $this->markTestSkipped('No SQLite PDO driver or PLASMA_TEST_DSN is available.');
+    }
+
+    $pdo = new PdoAdapter([
+        'dsn' => $dsn ?: 'sqlite::memory:',
+        'username' => getenv('PLASMA_TEST_USER') ?: '',
+        'password' => getenv('PLASMA_TEST_PASSWORD') ?: '',
+    ]);
     $dispatcher = new DatabaseEventDispatcher();
     $dispatcher->addListener(new ClockworkListener());
     $adapter = new EventDatabaseAdapter($pdo, $dispatcher);

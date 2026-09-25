@@ -6,7 +6,7 @@ use PDO;
 use Plasma\Internal\Sql;
 
 /** PDO adapter for MySQL/MariaDB and SQLite. */
-class PdoAdapter implements DatabaseAdapter
+class PdoAdapter implements DatabaseAdapter, DialectAwareAdapter
 {
     private PDO $pdo;
     private string $prefix;
@@ -38,6 +38,15 @@ class PdoAdapter implements DatabaseAdapter
         } finally {
             $statement->closeCursor();
         }
+    }
+
+    public function execute(string $sql): int
+    {
+        $affected = $this->pdo->exec($sql);
+        if ($affected === false) {
+            throw new \RuntimeException('PDO failed to execute the database statement.');
+        }
+        return $affected;
     }
 
     /**
@@ -221,4 +230,8 @@ class PdoAdapter implements DatabaseAdapter
     public function inTransaction(): bool { return $this->transactionDepth > 0; }
     public function getTransactionDepth(): int { return $this->transactionDepth; }
     public function getPrefix(): string { return $this->prefix; }
+    public function getDialect(): string
+    {
+        return strtolower((string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME));
+    }
 }

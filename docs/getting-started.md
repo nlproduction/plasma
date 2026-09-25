@@ -11,7 +11,7 @@ use Plasma\Adapter\PdoAdapter;
 use Plasma\Plasma;
 
 $adapter = new PdoAdapter(['dsn' => 'sqlite::memory:']);
-$adapter->query('CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, price INTEGER)');
+$adapter->execute('CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, price INTEGER)');
 $db = new Plasma($adapter);
 $db->products->create(['data' => ['name' => 'Coffee', 'price' => 12]]);
 $rows = $db->products->findMany(['where' => ['price' => ['lt' => 20]]]);

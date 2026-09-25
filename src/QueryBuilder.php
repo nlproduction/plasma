@@ -37,15 +37,44 @@ class QueryBuilder
         $sql = 'SELECT ' . $this->buildSelect($options['select'] ?? []) . ' FROM ' . $this->table;
         $sql .= $this->buildWhere($options['where'] ?? []);
         $sql .= $this->buildOrderBy($options['orderBy'] ?? []);
-        if (array_key_exists('take', $options)) {
-            $sql .= ' LIMIT ' . $options['take'];
-        } elseif (!empty($options['skip'])) {
-            // Valid for both MySQL/MariaDB and SQLite; OFFSET cannot stand alone.
-            $sql .= ' LIMIT 9223372036854775807';
+        $sql .= $this->buildPagination($options);
+        return $this->adapter->query($sql);
+    }
+
+    /**
+     * Return unique rows for one or more selected fields.
+     *
+     * Supported options: where, orderBy, take, skip. Order fields must be part
+     * of the distinct field list for portable MySQL/SQLite behavior.
+     */
+    public function distinct(array $fields, array $options = []): array
+    {
+        if (!WhereCompiler::isList($fields) || $fields === []) {
+            throw new \InvalidArgumentException('distinct fields must be a non-empty list.');
         }
-        if (!empty($options['skip'])) {
-            $sql .= ' OFFSET ' . $options['skip'];
+
+        $seen = [];
+        foreach ($fields as $field) {
+            if (!is_string($field)) {
+                throw new \InvalidArgumentException('distinct fields must contain only names.');
+            }
+            $this->assertField($field);
+            if (isset($seen[$field])) {
+                throw new \InvalidArgumentException('distinct fields must not contain duplicates.');
+            }
+            $seen[$field] = true;
         }
+
+        $this->validateOptions($options);
+        if (array_key_exists('select', $options) || array_key_exists('include', $options)) {
+            throw new \InvalidArgumentException('distinct does not accept select or include.');
+        }
+
+        $sql = 'SELECT DISTINCT ' . $this->buildSelect($fields) . ' FROM ' . $this->table;
+        $sql .= $this->buildWhere($options['where'] ?? []);
+        $sql .= $this->buildOrderBy($options['orderBy'] ?? [], $fields);
+        $sql .= $this->buildPagination($options);
+
         return $this->adapter->query($sql);
     }
 
@@ -85,8 +114,19 @@ class QueryBuilder
         return $this->compiler->compile($where);
     }
 
-    public function buildOrderBy(array $orderBy): string
+    public function buildOrderBy(array $orderBy, ?array $onlyFields = null): string
     {
+        $only = null;
+        if ($onlyFields !== null) {
+            foreach ($onlyFields as $field) {
+                if (!is_string($field)) {
+                    throw new \InvalidArgumentException('Allowed order fields must be strings.');
+                }
+                $this->assertField($field);
+            }
+            $only = array_fill_keys($onlyFields, true);
+        }
+
         $parts = [];
         $groups = WhereCompiler::isList($orderBy) ? $orderBy : [$orderBy];
         foreach ($groups as $group) {
@@ -98,6 +138,9 @@ class QueryBuilder
                     throw new \InvalidArgumentException('orderBy requires field names and asc/desc directions.');
                 }
                 $this->assertField($field);
+                if ($only !== null && !isset($only[$field])) {
+                    throw new \InvalidArgumentException('orderBy fields must be selected by distinct.');
+                }
                 $parts[] = Sql::quote($field) . ' ' . strtoupper($direction);
             }
         }
@@ -109,6 +152,21 @@ class QueryBuilder
     {
         $this->validateOptions($options);
         return (int) $this->adapter->getVar('SELECT COUNT(*) FROM ' . $this->table . $this->buildWhere($options['where'] ?? []));
+    }
+
+    private function buildPagination(array $options): string
+    {
+        $sql = '';
+        if (array_key_exists('take', $options)) {
+            $sql .= ' LIMIT ' . $options['take'];
+        } elseif (!empty($options['skip'])) {
+            // Valid for both MySQL/MariaDB and SQLite; OFFSET cannot stand alone.
+            $sql .= ' LIMIT 9223372036854775807';
+        }
+        if (!empty($options['skip'])) {
+            $sql .= ' OFFSET ' . $options['skip'];
+        }
+        return $sql;
     }
 
 

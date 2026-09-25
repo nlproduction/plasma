@@ -32,9 +32,10 @@ $products = $db->product->findMany([
 - **Forget WordPress SQL boilerplate.** For supported ORM queries, Plasma handles `$wpdb->prepare()`, LIKE escaping, identifier validation, and prefixes internally instead of spreading `esc_sql()`, `%s`, and string-built SQL throughout your plugin.
 - **WordPress core schema included.** `post`, `user`, `postmeta`, `comment`, taxonomy, options, and their relations are available automatically with `WpdbAdapter`; primary keys and field types are already known.
 - **Schema-aware by default.** Schema-backed models reject unknown fields in filters, projections, sorting, and writes before SQL reaches the database.
-- **An API you can read.** `findMany`, `findFirst`, `findUnique`, `create`, `update`, `delete`, and `count`.
+- **An API you can read.** `findMany`, `findFirst`, `findUnique`, `create`, `createMany`, `upsertMany`, `update`, `delete`, `count`, and `distinct`.
 - **Filters that travel.** Nested `AND` / `OR` / `NOT` and scalar operators are JSON-serializable, which makes saved queries and visual query builders straightforward.
 - **Relations without N+1.** `include` loads `hasMany`, `hasOne`, and `belongsTo` relations in batches, with nested `select` for projections.
+- **Bounded bulk writes and distinct values.** Insert or upsert homogeneous batches without per-row readback, and request schema-validated distinct scalars or tuples.
 - **Transactions built in.** Run atomic units of work with automatic commit/rollback; nested transactions use savepoints so inner failures can roll back without discarding outer work.
 - **Custom models at runtime.** Register schema metadata from a PHP array or JSON for your own tables; UI/form metadata can remain a separate application concern.
 - **PDO and WordPress adapters.** Use the existing `$wpdb` connection in WordPress or PDO for MySQL/MariaDB and SQLite.
@@ -74,6 +75,33 @@ $products->delete(['where' => ['id' => $product['id']]]);
 ```
 
 Plasma does not create or migrate tables. Use your application's migration system.
+
+## Bulk writes and distinct values
+
+```php
+$processed = $products->createMany([
+    'data' => [
+        ['sku' => 'A-1', 'name' => 'Coffee', 'active' => true],
+        ['name' => 'Tea', 'active' => false, 'sku' => 'B-2'],
+    ],
+]);
+
+$processed = $products->upsertMany([
+    'data' => [
+        ['sku' => 'A-1', 'name' => 'Coffee beans', 'active' => true],
+        ['sku' => 'C-3', 'name' => 'Cocoa', 'active' => true],
+    ],
+    'conflictFields' => ['sku'],
+    'updateFields' => ['name', 'active'],
+]);
+
+$activeValues = $products->distinct(
+    ['active'],
+    ['orderBy' => ['active' => 'asc']]
+);
+```
+
+Bulk rows must be a homogeneous list with the same columns; key order may differ. Batches are limited to 1,000 rows and return the number of input rows processed after successful execution, not a dialect-specific affected-row count. Schema casting and field allowlists still apply. MySQL/MariaDB upserts rely on database unique keys; SQLite uses the declared `conflictFields` target. A one-field `distinct()` returns scalar values, while multiple fields return associative tuples. [Full query and write contract →](docs/query-builder.md)
 
 ## Transactions
 
@@ -221,7 +249,7 @@ $rows = $db->product->findMany([
 ]);
 ```
 
-Plasma is **Prisma-inspired, not a drop-in Prisma Client**. Relation filters, nested writes, aggregations, JSON-path filters, field-to-field comparisons, and Prisma migrations are not implemented. [Supported query contract →](docs/query-builder.md)
+Plasma is **Prisma-inspired, not a drop-in Prisma Client**. Relation filters, nested writes, aggregate functions such as sum/average, JSON-path filters, field-to-field comparisons, and Prisma migrations are not implemented. [Supported query contract →](docs/query-builder.md)
 
 ## Documentation
 
@@ -229,7 +257,7 @@ Plasma is **Prisma-inspired, not a drop-in Prisma Client**. Relation filters, ne
 
 ## Status and security
 
-Early public release, with API changes still possible before 1.0. Query values are escaped by the selected adapter; PDO writes use bound parameters. Identifiers, operators, pagination, and filter complexity are checked. Database failures raise exceptions instead of looking like empty results.
+Early public release, with API changes still possible before 1.0. Query values are escaped by the selected adapter; ordinary PDO writes use bound parameters and bounded bulk statements use the adapter formatter. Identifiers, operators, pagination, batch size, and filter complexity are checked. Database failures raise exceptions instead of looking like empty results.
 
 Those checks are **not an authorization layer**. Never expose an unrestricted database client to browser-supplied table names or query objects. See [SECURITY.md](SECURITY.md) for the trust boundary and supported behavior.
 

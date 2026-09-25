@@ -147,3 +147,31 @@ describe('WpdbAdapter transactions', function () {
     expect($adapter->inTransaction())->toBeFalse();
   });
 });
+
+
+describe('WpdbAdapter statements and dialect', function () {
+  it('executes non-row statements through wpdb query', function () {
+    global $wpdb;
+    $wpdb = mockWpdb();
+    $wpdb->shouldReceive('query')
+      ->with('UPDATE wp_items SET active = 1')
+      ->andReturn(3);
+
+    $adapter = new WpdbAdapter();
+
+    expect($adapter->execute('UPDATE wp_items SET active = 1'))->toBe(3)
+      ->and($adapter->getDialect())->toBe('mysql');
+  });
+
+  it('throws when a wpdb statement fails', function () {
+    global $wpdb;
+    $wpdb = mockWpdb();
+    $wpdb->last_error = 'statement failed';
+    $wpdb->shouldReceive('query')->andReturn(false);
+
+    $adapter = new WpdbAdapter();
+
+    expect(fn() => $adapter->execute('BROKEN STATEMENT'))
+      ->toThrow(RuntimeException::class);
+  });
+});

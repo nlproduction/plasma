@@ -359,15 +359,15 @@ class Plasma
 
     $tables = array_values(array_unique($tables));
 
-    $this->adapter->query('SET FOREIGN_KEY_CHECKS=0');
+    $this->adapter->execute('SET FOREIGN_KEY_CHECKS=0');
 
     try {
       foreach ($tables as $logical) {
         $escaped = str_replace('`', '``', $logical);
-        $this->adapter->query("DROP TABLE IF EXISTS `{$escaped}`");
+        $this->adapter->execute("DROP TABLE IF EXISTS `{$escaped}`");
       }
     } finally {
-      $this->adapter->query('SET FOREIGN_KEY_CHECKS=1');
+      $this->adapter->execute('SET FOREIGN_KEY_CHECKS=1');
     }
 
     $this->models = [];

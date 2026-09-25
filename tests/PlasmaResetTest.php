@@ -22,9 +22,9 @@ describe('Plasma reset', function () {
     $queries = [];
     $adapter = mockAdapter();
     $adapter->shouldReceive('getPrefix')->andReturn('wp_plasma_');
-    $adapter->shouldReceive('query')->andReturnUsing(function ($sql) use (&$queries) {
+    $adapter->shouldReceive('execute')->andReturnUsing(function ($sql) use (&$queries) {
       $queries[] = $sql;
-      return [];
+      return 0;
     });
 
     $plasma = new Plasma($adapter, [$schemaPath]);
@@ -52,7 +52,7 @@ describe('Plasma reset', function () {
 
     $adapter = mockAdapter();
     $adapter->shouldReceive('getPrefix')->andReturn('');
-    $adapter->shouldReceive('query')->andReturn([]);
+    $adapter->shouldReceive('execute')->andReturn(0);
 
     $plasma = new Plasma($adapter, [$schemaPath]);
     $modelBefore = $plasma->location;

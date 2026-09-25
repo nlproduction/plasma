@@ -6,7 +6,7 @@ use Plasma\Events\DatabaseEvent;
 use Plasma\Events\DatabaseEventDispatcher;
 
 /** Opt-in observation decorator. Listeners are not transactional middleware. */
-class EventDatabaseAdapter implements DatabaseAdapter
+class EventDatabaseAdapter implements DatabaseAdapter, SchemaProvidingAdapter, DialectAwareAdapter
 {
     private DatabaseAdapter $adapter;
     private DatabaseEventDispatcher $dispatcher;
@@ -19,12 +19,12 @@ class EventDatabaseAdapter implements DatabaseAdapter
 
     public function getDispatcher(): DatabaseEventDispatcher { return $this->dispatcher; }
 
-    private function execute(string $method, array $args)
+    private function observe(string $method, array $args)
     {
         $start = microtime(true);
         try {
             $result = $this->adapter->{$method}(...$args);
-            if ($result === false && in_array($method, ['insert', 'update', 'delete'], true)) {
+            if ($result === false && in_array($method, ['execute', 'insert', 'update', 'delete'], true)) {
                 throw new \RuntimeException('Database adapter reported a failed write.');
             }
         } catch (\Throwable $error) {
@@ -37,24 +37,29 @@ class EventDatabaseAdapter implements DatabaseAdapter
 
     private function dispatch(string $method, array $args, $result, float $start, ?\Throwable $error = null): void
     {
-        $query = $method === 'query' || $method === 'getVar';
+        $sqlMethod = in_array($method, ['query', 'getVar', 'execute'], true);
+        $operation = $method === 'execute'
+            ? 'statement'
+            : ($sqlMethod ? 'query' : ($method === 'insert' ? 'create' : $method));
+
         $this->dispatcher->dispatch(new DatabaseEvent(
-            $query ? 'query' : ($method === 'insert' ? 'create' : $method),
-            $query ? '' : $args[0],
+            $operation,
+            $sqlMethod ? '' : $args[0],
             in_array($method, ['insert', 'update'], true) ? $args[1] : null,
             $method === 'update' ? $args[2] : ($method === 'delete' ? $args[1] : null),
             $result,
             (microtime(true) - $start) * 1000,
-            $query ? $args[0] : null,
+            $sqlMethod ? $args[0] : null,
             $error
         ));
     }
 
-    public function query(string $sql): array { return $this->execute('query', [$sql]); }
-    public function insert(string $table, array $data) { return $this->execute('insert', [$table, $data]); }
-    public function update(string $table, array $data, array $where) { return $this->execute('update', [$table, $data, $where]); }
-    public function delete(string $table, array $where) { return $this->execute('delete', [$table, $where]); }
-    public function getVar(string $sql) { return $this->execute('getVar', [$sql]); }
+    public function query(string $sql): array { return $this->observe('query', [$sql]); }
+    public function execute(string $sql): int { return $this->observe('execute', [$sql]); }
+    public function insert(string $table, array $data) { return $this->observe('insert', [$table, $data]); }
+    public function update(string $table, array $data, array $where) { return $this->observe('update', [$table, $data, $where]); }
+    public function delete(string $table, array $where) { return $this->observe('delete', [$table, $where]); }
+    public function getVar(string $sql) { return $this->observe('getVar', [$sql]); }
     public function prepare(string $sql, ...$params): string { return $this->adapter->prepare($sql, ...$params); }
     public function escapeLike(string $value): string { return $this->adapter->escapeLike($value); }
     public function beginTransaction(): void { $this->adapter->beginTransaction(); }
@@ -63,4 +68,19 @@ class EventDatabaseAdapter implements DatabaseAdapter
     public function inTransaction(): bool { return $this->adapter->inTransaction(); }
     public function getTransactionDepth(): int { return $this->adapter->getTransactionDepth(); }
     public function getPrefix(): string { return $this->adapter->getPrefix(); }
+
+    public function defaultSchemas(): array
+    {
+        return $this->adapter instanceof SchemaProvidingAdapter
+            ? $this->adapter->defaultSchemas()
+            : [];
+    }
+
+    public function getDialect(): string
+    {
+        if (!$this->adapter instanceof DialectAwareAdapter) {
+            throw new \RuntimeException('Wrapped database adapter does not expose its SQL dialect.');
+        }
+        return $this->adapter->getDialect();
+    }
 }

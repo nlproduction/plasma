@@ -20,7 +20,7 @@ $dispatcher->addListener(new class implements DatabaseEventListener {
 $db = new Plasma(new EventDatabaseAdapter($baseAdapter, $dispatcher));
 ```
 
-An immutable event exposes `operation`, `table`, `data`, `where`, `result`, `duration`, `sql`, and `error`. SQL is included for query/getVar operations. Failed writes emit an error event and rethrow; a false write result from a custom adapter is not reported as success.
+An immutable event exposes `operation`, `table`, `data`, `where`, `result`, `duration`, `sql`, and `error`. SQL is included for `query`, `getVar`, and `execute` operations. Non-row `execute()` calls use operation `statement`; row reads use `query`. Failed writes/statements emit an error event and rethrow; a false result from a custom adapter is not reported as success.
 
 Observer exceptions are isolated by the dispatcher. This is deliberate for telemetry, **not a transactional outbox guarantee**. Security checks and mandatory business invariants belong before the write, not in these listeners. Avoid writing through the same observed adapter inside a listener, which can recurse indefinitely.
 

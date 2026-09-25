@@ -19,6 +19,14 @@ interface DatabaseAdapter
   public function query(string $sql): array;
 
   /**
+   * Execute a non-row statement and return its affected-row count when meaningful.
+   *
+   * @param string $sql
+   * @return int
+   */
+  public function execute(string $sql): int;
+
+  /**
    * Format SQL with connection-escaped values (WordPress-style %s/%d/%f)
    * 
    * @param string $sql

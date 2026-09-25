@@ -3,6 +3,7 @@
 namespace Plasma;
 
 use Plasma\Adapter\DatabaseAdapter;
+use Plasma\Internal\BulkWriter;
 use Plasma\Internal\Sql;
 use Plasma\Internal\WhereCompiler;
 
@@ -13,7 +14,7 @@ use Plasma\Internal\WhereCompiler;
  * Works with any DatabaseAdapter (PdoAdapter, WpdbAdapter, custom adapters).
  *
  * Features:
- * - Prisma-like methods: findMany(), findUnique(), findFirst(), create(), update(), delete(), count()
+ * - Prisma-like methods: findMany(), findUnique(), findFirst(), create(), createMany(), upsertMany(), update(), delete(), count(), distinct()
  * - Type-safe queries with array-based DSL
  * - Relation loading (hasMany, hasOne, belongsTo) with N+1 prevention
  * - JSON serializable query structure (perfect for workflows)
@@ -202,6 +203,54 @@ class Model
   }
 
   /**
+   * Insert a bounded homogeneous batch without per-row readback.
+   *
+   * Accepts either a list of rows or ['data' => [...rows...]].
+   * Returns the number of input rows processed after successful execution.
+   */
+  public function createMany(array $options): int
+  {
+    $rows = $this->batchRows($options, []);
+    return $this->bulkWriter()->createMany($this->serializeRows($rows));
+  }
+
+  /**
+   * Insert or update a bounded homogeneous batch.
+   *
+   * Options: data, conflictFields (defaults to primary key), updateFields
+   * (defaults to every non-conflict field). The return value is the number of
+   * input rows processed, independent of dialect-specific affected-row rules.
+   */
+  public function upsertMany(array $options): int
+  {
+    $shorthand = WhereCompiler::isList($options);
+    $rows = $this->batchRows($options, ['conflictFields', 'updateFields']);
+    $conflictFields = $shorthand
+      ? [$this->primaryKey]
+      : ($options['conflictFields'] ?? [$this->primaryKey]);
+    if (!is_array($conflictFields)) {
+      throw new \InvalidArgumentException('conflictFields must be a list of field names.');
+    }
+
+    $updateFields = $shorthand ? null : ($options['updateFields'] ?? null);
+    if ($updateFields !== null && !is_array($updateFields)) {
+      throw new \InvalidArgumentException('updateFields must be a list of field names.');
+    }
+
+    $serialized = $this->serializeRows($rows);
+    $columns = $serialized === [] ? [] : array_keys($serialized[0]);
+    if ($updateFields === null) {
+      $updateFields = array_values(array_diff($columns, $conflictFields));
+    }
+
+    return $this->bulkWriter()->upsertMany(
+      $serialized,
+      $conflictFields,
+      $updateFields
+    );
+  }
+
+  /**
    * Update records
    *
    * @param array $options ['where' => [...], 'data' => [...]]
@@ -285,6 +334,24 @@ class Model
   public function count(array $options = []): int
   {
     return $this->queryBuilder()->count($options);
+  }
+
+  /**
+   * Return unique scalar values or unique field tuples.
+   *
+   * One field returns a scalar list. Multiple fields return associative rows.
+   * Supported options: where, orderBy, take, skip.
+   */
+  public function distinct(array $fields, array $options = []): array
+  {
+    $rows = $this->queryBuilder()->distinct($fields, $options);
+    $rows = $this->hydrateRows($rows);
+
+    if (count($fields) === 1) {
+      return array_column($rows, $fields[0]);
+    }
+
+    return $rows;
   }
 
   /**
@@ -436,6 +503,58 @@ class Model
     }
 
     return new Model($relatedTable, $this->adapter);
+  }
+
+  private function bulkWriter(): BulkWriter
+  {
+    $allowedFields = $this->fieldTypes === [] ? null : array_keys($this->fieldTypes);
+    return new BulkWriter($this->table, $this->adapter, $allowedFields);
+  }
+
+  /**
+   * @param string[] $allowedOptions
+   * @return array<int, array<string, mixed>>
+   */
+  private function batchRows(array $options, array $allowedOptions): array
+  {
+    if (WhereCompiler::isList($options)) {
+      return $options;
+    }
+
+    $allowed = array_fill_keys(array_merge(['data'], $allowedOptions), true);
+    foreach ($options as $key => $_) {
+      if (!is_string($key) || !isset($allowed[$key])) {
+        throw new \InvalidArgumentException('Unsupported bulk option: ' . (string) $key);
+      }
+    }
+
+    if (!array_key_exists('data', $options) || !is_array($options['data'])) {
+      throw new \InvalidArgumentException('Bulk operations require a data row list.');
+    }
+
+    return $options['data'];
+  }
+
+  /**
+   * @param array<int, mixed> $rows
+   * @return array<int, array<string, mixed>>
+   */
+  private function serializeRows(array $rows): array
+  {
+    if (!WhereCompiler::isList($rows)) {
+      throw new \InvalidArgumentException('Bulk data must be a list of row objects.');
+    }
+
+    $serialized = [];
+    foreach ($rows as $row) {
+      if (!is_array($row)) {
+        throw new \InvalidArgumentException('Every bulk row must be an array.');
+      }
+      $this->assertKnownFields($row);
+      $serialized[] = $this->serializeRow($row);
+    }
+
+    return $serialized;
   }
 
 

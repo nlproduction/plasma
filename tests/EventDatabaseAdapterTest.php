@@ -196,3 +196,88 @@ describe('EventDatabaseAdapter', function () {
         expect($events)->toHaveCount(0);
     });
 });
+
+
+describe('EventDatabaseAdapter capabilities', function () {
+    it('dispatches dedicated statement events', function () {
+        $baseAdapter = mockAdapter();
+        $baseAdapter->shouldReceive('execute')
+            ->with('UPDATE test SET active = 1')
+            ->andReturn(3);
+
+        $events = [];
+        $dispatcher = new \Plasma\Events\DatabaseEventDispatcher();
+        $dispatcher->addListener(new class($events) implements \Plasma\Events\DatabaseEventListener {
+            public function __construct(private array &$events) {}
+            public function handle(\Plasma\Events\DatabaseEvent $event): void
+            {
+                $this->events[] = $event;
+            }
+        });
+
+        $adapter = new \Plasma\Adapter\EventDatabaseAdapter($baseAdapter, $dispatcher);
+        expect($adapter->execute('UPDATE test SET active = 1'))->toBe(3);
+        expect($events)->toHaveCount(1)
+            ->and($events[0]->operation)->toBe('statement')
+            ->and($events[0]->table)->toBe('')
+            ->and($events[0]->sql)->toBe('UPDATE test SET active = 1')
+            ->and($events[0]->result)->toBe(3);
+    });
+
+    it('captures statement failures and rethrows them', function () {
+        $baseAdapter = mockAdapter();
+        $failure = new RuntimeException('statement failed');
+        $baseAdapter->shouldReceive('execute')->andThrow($failure);
+
+        $events = [];
+        $dispatcher = new \Plasma\Events\DatabaseEventDispatcher();
+        $dispatcher->addListener(new class($events) implements \Plasma\Events\DatabaseEventListener {
+            public function __construct(private array &$events) {}
+            public function handle(\Plasma\Events\DatabaseEvent $event): void
+            {
+                $this->events[] = $event;
+            }
+        });
+
+        $adapter = new \Plasma\Adapter\EventDatabaseAdapter($baseAdapter, $dispatcher);
+        expect(fn() => $adapter->execute('BROKEN STATEMENT'))
+            ->toThrow(RuntimeException::class, 'statement failed');
+        expect($events)->toHaveCount(1)
+            ->and($events[0]->operation)->toBe('statement')
+            ->and($events[0]->sql)->toBe('BROKEN STATEMENT')
+            ->and($events[0]->error)->toBe($failure);
+    });
+
+    it('forwards adapter-provided default schemas through the decorator', function () {
+        $baseAdapter = Mockery::mock(
+            \Plasma\Adapter\DatabaseAdapter::class . ', ' .
+            \Plasma\Adapter\SchemaProvidingAdapter::class
+        );
+        $schema = [
+            'Intrinsic' => [
+                'table' => 'intrinsic',
+                'fields' => ['id' => ['type' => 'int']],
+            ],
+        ];
+        $baseAdapter->shouldReceive('getPrefix')->andReturn('');
+        $baseAdapter->shouldReceive('defaultSchemas')->andReturn([$schema]);
+
+        $adapter = new \Plasma\Adapter\EventDatabaseAdapter($baseAdapter);
+        $db = new \Plasma\Plasma($adapter);
+
+        expect($db->getSchema())->toBe($schema);
+    });
+
+    it('forwards SQL dialect capability or fails explicitly', function () {
+        $dialectAdapter = Mockery::mock(
+            \Plasma\Adapter\DatabaseAdapter::class . ', ' .
+            \Plasma\Adapter\DialectAwareAdapter::class
+        );
+        $dialectAdapter->shouldReceive('getDialect')->andReturn('sqlite');
+        expect((new \Plasma\Adapter\EventDatabaseAdapter($dialectAdapter))->getDialect())
+            ->toBe('sqlite');
+
+        expect(fn() => (new \Plasma\Adapter\EventDatabaseAdapter(mockAdapter()))->getDialect())
+            ->toThrow(RuntimeException::class, 'does not expose its SQL dialect');
+    });
+});

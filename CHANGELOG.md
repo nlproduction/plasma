@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased — bulk writes, distinct values, and statement execution
+
+### Added
+
+- Add a dedicated `DatabaseAdapter::execute()` contract for non-row DDL/DML statements.
+- Add `DialectAwareAdapter` and dialect forwarding through `EventDatabaseAdapter`.
+- Add schema-aware `Model::createMany()` and `Model::upsertMany()` for bounded homogeneous batches.
+- Add typed `Model::distinct()` scalar and tuple queries with filtering, ordering, and pagination.
+- Add real MySQL/PDO and optional real WordPress `wpdb` regression coverage.
+
+### Improved
+
+- Forward adapter-provided default schemas through event decorators, preserving bundled WordPress models.
+- Emit dedicated `statement` database events for `execute()` calls.
+- Route reset/DDL paths and examples through `execute()` instead of treating statements as row queries.
+- Make the runtime smoke portable across SQLite and externally configured MySQL/MariaDB.
+
+### Compatibility notes
+
+Custom `DatabaseAdapter` implementations must add `execute(string $sql): int`. Dialect-specific operations such as `upsertMany()` additionally require `DialectAwareAdapter`; unsupported dialects fail explicitly. Bulk methods return the number of input rows processed after successful execution rather than database-specific affected-row counts.
+
 ## 0.2.0 — 2026-09-25 — WordPress core schema
 
 ### Added

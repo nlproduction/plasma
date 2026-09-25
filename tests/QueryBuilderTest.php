@@ -398,3 +398,64 @@ describe('QueryBuilder validation', function () {
     expect($count)->toBe(2);
   });
 });
+
+
+describe('QueryBuilder distinct', function () {
+  it('builds one portable distinct query with filtering ordering and pagination', function () {
+    $adapter = mockAdapter();
+    $adapter->shouldReceive('query')
+      ->once()
+      ->with(Mockery::on(function ($sql) {
+        return strpos($sql, 'SELECT DISTINCT `status`, `role` FROM `users`') === 0
+          && strpos($sql, 'WHERE `active` = 1') !== false
+          && strpos($sql, 'ORDER BY `status` ASC, `role` DESC') !== false
+          && strpos($sql, 'LIMIT 10 OFFSET 5') !== false;
+      }))
+      ->andReturn([
+        ['status' => 'active', 'role' => 'admin'],
+      ]);
+
+    $qb = new QueryBuilder(
+      'users',
+      $adapter,
+      [],
+      ['status', 'role', 'active']
+    );
+
+    expect($qb->distinct(
+      ['status', 'role'],
+      [
+        'where' => ['active' => true],
+        'orderBy' => [['status' => 'asc'], ['role' => 'desc']],
+        'take' => 10,
+        'skip' => 5,
+      ]
+    ))->toBe([
+      ['status' => 'active', 'role' => 'admin'],
+    ]);
+  });
+
+  it('rejects unknown duplicate and unselected distinct fields', function () {
+    $qb = new QueryBuilder(
+      'users',
+      mockAdapter(),
+      [],
+      ['status', 'role', 'active']
+    );
+
+    expect(fn() => $qb->distinct([]))
+      ->toThrow(InvalidArgumentException::class);
+    expect(fn() => $qb->distinct(['unknown']))
+      ->toThrow(InvalidArgumentException::class);
+    expect(fn() => $qb->distinct(['status', 'status']))
+      ->toThrow(InvalidArgumentException::class);
+    expect(fn() => $qb->distinct(
+      ['status'],
+      ['orderBy' => ['role' => 'asc']]
+    ))->toThrow(InvalidArgumentException::class);
+    expect(fn() => $qb->distinct(
+      ['status'],
+      ['select' => ['status']]
+    ))->toThrow(InvalidArgumentException::class);
+  });
+});

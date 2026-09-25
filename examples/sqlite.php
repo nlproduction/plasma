@@ -6,7 +6,7 @@ use Plasma\Adapter\PdoAdapter;
 use Plasma\Plasma;
 
 $adapter = new PdoAdapter(['dsn' => 'sqlite::memory:', 'prefix' => 'demo_']);
-$adapter->query('CREATE TABLE demo_products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, price INTEGER, active INTEGER)');
+$adapter->execute('CREATE TABLE demo_products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, price INTEGER, active INTEGER)');
 $db = (new Plasma($adapter))->registerSchema([
     'product' => [
         'table' => 'products',
