@@ -1,0 +1,61 @@
+{
+  "name": "nlproduction/plasma",
+  "description": "Prisma-style queries for plain PHP and WordPress. Lightweight ORM with runtime schemas, relations and PDO/wpdb adapters. By the developers of MapSVG.",
+  "type": "library",
+  "license": "MIT",
+  "require": {
+    "php": ">=7.4",
+    "ext-json": "*"
+  },
+  "require-dev": {
+    "mockery/mockery": "^1.6",
+    "pestphp/pest": "^2.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Plasma\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Plasma\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "test": "pest",
+    "test:coverage": "pest --coverage",
+    "example": "@php examples/sqlite.php"
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
+  },
+  "homepage": "https://mapsvg.com",
+  "keywords": [
+    "orm",
+    "php",
+    "prisma",
+    "wordpress",
+    "mysql",
+    "sqlite",
+    "database",
+    "query-builder"
+  ],
+  "authors": [
+    {
+      "name": "MapSVG developers",
+      "homepage": "https://mapsvg.com"
+    }
+  ],
+  "support": {
+    "source": "https://github.com/nlproduction/plasma",
+    "issues": "https://github.com/nlproduction/plasma/issues"
+  },
+  "suggest": {
+    "ext-pdo": "Required for the PDO adapter",
+    "ext-pdo_mysql": "Use MySQL/MariaDB with PDO",
+    "ext-pdo_sqlite": "Use SQLite with PDO",
+    "itsgoingd/clockwork": "Optional database-query inspection"
+  }
+}
