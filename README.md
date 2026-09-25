@@ -35,6 +35,7 @@ $products = $db->product->findMany([
 - **An API you can read.** `findMany`, `findFirst`, `findUnique`, `create`, `update`, `delete`, and `count`.
 - **Filters that travel.** Nested `AND` / `OR` / `NOT` and scalar operators are JSON-serializable, which makes saved queries and visual query builders straightforward.
 - **Relations without N+1.** `include` loads `hasMany`, `hasOne`, and `belongsTo` relations in batches, with nested `select` for projections.
+- **Transactions built in.** Run atomic units of work with automatic commit/rollback; nested transactions use savepoints so inner failures can roll back without discarding outer work.
 - **Custom models at runtime.** Register schema metadata from a PHP array or JSON for your own tables; UI/form metadata can remain a separate application concern.
 - **PDO and WordPress adapters.** Use the existing `$wpdb` connection in WordPress or PDO for MySQL/MariaDB and SQLite.
 - **MIT and framework-independent.** Runtime supports PHP 7.4+; development/test tooling uses PHP 8.2+.
@@ -73,6 +74,74 @@ $products->delete(['where' => ['id' => $product['id']]]);
 ```
 
 Plasma does not create or migrate tables. Use your application's migration system.
+
+## Transactions
+
+Wrap a unit of work in `transaction()`. Plasma commits when the callback returns and rolls back automatically if the callback throws an `Exception`, `Error`, or other `Throwable`:
+
+```php
+$order = $db->transaction(function (Plasma $db) {
+    $order = $db->order->create([
+        'data' => [
+            'customer_id' => 42,
+            'status' => 'pending',
+        ],
+    ]);
+
+    $db->inventory->update([
+        'where' => ['product_id' => 7],
+        'data' => ['reserved' => 1],
+    ]);
+
+    return $order;
+});
+```
+
+If the inventory update fails, the order insert is rolled back too.
+
+### Nested transactions
+
+Nested `transaction()` calls use database savepoints. An inner transaction can fail and roll back its own work while the outer transaction continues:
+
+```php
+$db->transaction(function (Plasma $db) {
+    $db->audit->create(['data' => ['message' => 'Checkout started']]);
+
+    try {
+        $db->transaction(function (Plasma $db) {
+            $db->payment->create([
+                'data' => ['order_id' => 1001, 'status' => 'authorizing'],
+            ]);
+
+            throw new RuntimeException('Payment provider rejected the charge');
+        });
+    } catch (RuntimeException $e) {
+        // The payment savepoint was rolled back.
+        // The outer transaction is still alive.
+        $db->audit->create(['data' => ['message' => 'Payment failed']]);
+    }
+});
+```
+
+You can also control the transaction manually when needed:
+
+```php
+$db->beginTransaction();
+
+try {
+    $db->product->update([
+        'where' => ['id' => 7],
+        'data' => ['active' => false],
+    ]);
+
+    $db->commit();
+} catch (Throwable $e) {
+    $db->rollback();
+    throw $e;
+}
+```
+
+Both PDO and WordPress adapters support nested transaction depth with savepoints. Your database/table engine must support transactions; do not assume DDL statements such as `ALTER TABLE` are transactional. [Adapter transaction details →](docs/adapters/pdo-adapter.md#transactions)
 
 ## WordPress
 
