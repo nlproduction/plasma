@@ -14,6 +14,7 @@ function mockWpdb()
   /** @var Mockery\MockInterface&\stdClass $wpdb */
   $wpdb = Mockery::mock('stdClass');
   $wpdb->prefix = 'wp_';
+  $wpdb->base_prefix = 'wp_';
   $wpdb->shouldReceive('get_results')
     ->with(Mockery::type('string'), 'ARRAY_A')
     ->andReturn([])

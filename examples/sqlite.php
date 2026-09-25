@@ -10,7 +10,7 @@ $adapter->query('CREATE TABLE demo_products (id INTEGER PRIMARY KEY AUTOINCREMEN
 $db = (new Plasma($adapter))->registerSchema([
     'product' => [
         'table' => 'products',
-        'fields' => ['id' => ['type' => 'int'], 'active' => ['type' => 'boolean']],
+        'fields' => ['id' => ['type' => 'int'], 'name' => ['type' => 'string'], 'price' => ['type' => 'int'], 'active' => ['type' => 'boolean']],
     ],
 ]);
 $db->transaction(function (Plasma $db) {

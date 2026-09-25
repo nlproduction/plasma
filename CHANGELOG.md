@@ -1,11 +1,25 @@
 # Changelog
 
+## 0.2.0 — 2026-09-25 — WordPress core schema
+
+### Added
+
+- Bundle the standard WordPress core data schema and load it automatically through `WpdbAdapter`.
+- Built-in models for users, posts, metadata, comments, taxonomy, relationships, and options, including common relations.
+- Schema-backed field allowlisting for filters, projections, sorting, creates, updates, and deletes.
+- Correct WordPress multisite prefix handling: site tables use `$wpdb->prefix`; users/usermeta use `$wpdb->base_prefix`.
+
+### Improved
+
+- Preserve absolute WordPress core table names through the model/query/adapter boundary even when an application suffix is configured.
+- WordPress docs now focus on schema-aware ORM access without hand-written `esc_sql()`, `$wpdb->prepare()`, LIKE escaping, or prefix concatenation for supported Plasma queries.
+
 ## 0.1.0 — Initial public release
 
 ### Added
 
 - Prisma-inspired scalar query API with recursive AND/OR/NOT, null handling, projection, sorting, and pagination.
-- PHP-array schema registration and strict JSON-file loading; Node.js and code generation are not required.
+- PHP-array schema registration and strict JSON-file loading for runtime model metadata.
 - Public documentation, runnable SQLite example, contributing/security guides, and MIT licensing.
 - Database-backed regression tests covering CRUD, relationships, escaping, transactions, and schema metadata.
 

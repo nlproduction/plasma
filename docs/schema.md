@@ -1,6 +1,6 @@
 # Schemas and relationships
 
-A Plasma schema is an optional dictionary of model names. It describes data, not forms, UI controls, permissions, or migrations.
+A Plasma schema is a dictionary of model names used for field casting, field validation, primary keys, tables, and relations. It describes data, not forms, UI controls, permissions, or migrations. `WpdbAdapter` registers the bundled WordPress core schema automatically; application schemas can be added at runtime.
 
 ```php
 $schema = [
@@ -37,7 +37,7 @@ Alternatively, `new Plasma($adapter, [$schemaArray, $jsonFile])` loads sources i
 
 `table` is required. `primaryKey` defaults to `id`; composite keys are not supported. Logical names and already-prefixed names are normalized once. Use a separate client/adapter for each table-prefix namespace. Never let clients select arbitrary physical tables.
 
-Without schemas, `table('products', 'id')` and `$db->products` still work. Schemas are not table allowlists: undeclared dynamic tables remain accessible to trusted PHP code.
+Without schemas, `table('products', 'id')` and `$db->products` still work. Schema-backed models reject undeclared fields in filters, select, orderBy, and writes. Schemas are still not a global table allowlist: undeclared dynamic tables remain accessible to trusted PHP code through `table()` or dynamic model access.
 
 ## Casting
 
@@ -51,7 +51,7 @@ Without schemas, `table('products', 'id')` and `$db->products` still work. Schem
 | `datetime` | Strings on read; `DateTimeInterface` writes as `Y-m-d H:i:s` |
 | `string` | No automatic coercion |
 
-Null remains null. Preserve exact decimals as strings. There is no generated PHP class, compile-time type safety, input validation derived from nullability/defaults, or automatic migration. Schema fields provide casting metadata, not application authorization.
+Null remains null. Preserve exact decimals as strings. There is no generated PHP class, compile-time type safety, input validation derived from nullability/defaults, or automatic migration. Schema fields provide casting and field-validation metadata, not application authorization.
 
 ## Relationships
 

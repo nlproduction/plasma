@@ -6,7 +6,7 @@ Plasma is an independent MIT-licensed PHP ORM by the developers of MapSVG (https
 
 - Public namespace: `Plasma\`. Keep PHP 7.4-compatible syntax in `src/`.
 - The public API is documented in README and docs; internal SQL helpers are not a stable API.
-- PHP arrays and JSON files are equivalent schema sources. Runtime use must not require Node or code generation.
+- PHP arrays and JSON files are equivalent runtime schema sources; keep schema loading self-contained and deterministic.
 - Query escaping is not authorization. Consumers own table/field allowlists and access control.
 - Do not silently drop unsupported filters or swallow database errors.
 - Keep the equality-only mutation contract explicit; do not accidentally apply read ASTs to writes.

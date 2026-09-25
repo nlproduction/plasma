@@ -1,8 +1,10 @@
 # Plasma
 
-### Prisma-style queries. Plain PHP. No framework required.
+### Prisma-style database access for PHP and WordPress.
 
 Query your database with readable PHP arrays instead of assembling SQL strings. Use the same query shape in a WordPress plugin, a standalone PHP application, or a visual query-builder interface.
+
+**WordPress without SQL boilerplate.** Plasma ships with the WordPress core schema, so ordinary ORM queries against posts, users, metadata, comments, taxonomy, and options do not need hand-written `esc_sql()`, `$wpdb->prepare()`, placeholder juggling, or table-prefix concatenation. Plasma validates schema fields and identifiers, prepares values through the active adapter, escapes LIKE patterns, casts typed fields, and follows declared relations for you.
 
 **Built by the developers of [MapSVG](https://mapsvg.com). Released under the [MIT license](LICENSE).**
 
@@ -15,21 +17,27 @@ $products = $db->product->findMany([
             ['name' => ['contains' => 'coffee']],
         ],
     ],
+    'include' => [
+        'category' => [
+            'select' => ['id', 'name'],
+        ],
+    ],
     'orderBy' => ['name' => 'asc'],
     'take' => 20,
 ]);
 ```
 
-**No Node.js. No code generation. No application framework.** Start with existing tables; add model metadata only when you need casting or relationships.
-
 ## Why Plasma?
 
+- **Forget WordPress SQL boilerplate.** For supported ORM queries, Plasma handles `$wpdb->prepare()`, LIKE escaping, identifier validation, and prefixes internally instead of spreading `esc_sql()`, `%s`, and string-built SQL throughout your plugin.
+- **WordPress core schema included.** `post`, `user`, `postmeta`, `comment`, taxonomy, options, and their relations are available automatically with `WpdbAdapter`; primary keys and field types are already known.
+- **Schema-aware by default.** Schema-backed models reject unknown fields in filters, projections, sorting, and writes before SQL reaches the database.
 - **An API you can read.** `findMany`, `findFirst`, `findUnique`, `create`, `update`, `delete`, and `count`.
-- **Filters that travel.** Nested `AND` / `OR` / `NOT` and scalar operators are JSON-serializable. Useful for saved queries and visual query builders.
-- **WordPress without a second connection.** Use the existing `$wpdb`, including custom prefixes. PDO supports MySQL/MariaDB and SQLite.
-- **Optional, runtime-defined models.** Register a PHP array or load JSON. No writable schema files or Node runtime needed on customer servers.
-- **Useful ORM essentials.** Batched relationship loading, JSON/boolean casting, large-integer preservation, and nested transactions with savepoints.
-- **No mandatory framework dependencies.** PHP 7.4+ and JSON; the database extension depends on your adapter. Optional event listeners and Clockwork integration.
+- **Filters that travel.** Nested `AND` / `OR` / `NOT` and scalar operators are JSON-serializable, which makes saved queries and visual query builders straightforward.
+- **Relations without N+1.** `include` loads `hasMany`, `hasOne`, and `belongsTo` relations in batches, with nested `select` for projections.
+- **Custom models at runtime.** Register schema metadata from a PHP array or JSON for your own tables; UI/form metadata can remain a separate application concern.
+- **PDO and WordPress adapters.** Use the existing `$wpdb` connection in WordPress or PDO for MySQL/MariaDB and SQLite.
+- **MIT and framework-independent.** Runtime supports PHP 7.4+; development/test tooling uses PHP 8.2+.
 
 ## Install
 
@@ -37,7 +45,7 @@ Install from the public GitHub repository through Composer:
 
 ```bash
 composer config repositories.plasma vcs https://github.com/nlproduction/plasma
-composer require nlproduction/plasma:^0.1
+composer require nlproduction/plasma:^0.2
 ```
 
 The VCS repository entry is required until the package is listed on Packagist. End users of a packaged WordPress plugin do not need Composer: run it during your build and ship the production `vendor/` directory.
@@ -68,23 +76,42 @@ Plasma does not create or migrate tables. Use your application's migration syste
 
 ## WordPress
 
+WordPress core metadata is bundled and loaded automatically by `WpdbAdapter`:
+
 ```php
 use Plasma\Plasma;
 use Plasma\WordPress\WpdbAdapter;
 
-// Site prefix + your plugin prefix: wp_myplugin_products.
-$db = new Plasma(new WpdbAdapter('myplugin_'));
-$products = $db->table('products')->findMany(['take' => 20]);
+$db = new Plasma(new WpdbAdapter());
 
-// Core WordPress tables: no plugin suffix, and an explicit primary key.
-$wp = new Plasma(new WpdbAdapter());
-$posts = $wp->table('posts', 'ID')->findMany([
-    'where' => ['post_status' => 'publish'],
+$posts = $db->post->findMany([
+    'where' => [
+        'post_status' => 'publish',
+        'post_type' => 'post',
+    ],
+    'include' => [
+        'author' => [
+            'select' => ['ID', 'display_name'],
+        ],
+    ],
+    'orderBy' => ['post_date' => 'desc'],
     'take' => 10,
 ]);
 ```
 
-Prefer separate client instances when several plugins share the process. Plasma does not bundle WordPress table schemas or replace WordPress APIs, permissions, hooks, or cache invalidation. [WordPress guide →](docs/adapters/wpdb-adapter.md)
+No schema path or explicit `ID` primary-key configuration is needed for WordPress core tables. The bundled schema covers users/usermeta, posts/postmeta, comments/commentmeta, terms/taxonomy/relationships/meta, and options.
+
+For plugin-owned tables, add a suffix and register your own models. WordPress core models still resolve against the site's normal `wp_` prefix while your plugin models use `wp_myplugin_`:
+
+```php
+$db = new Plasma(new WpdbAdapter('myplugin_'));
+$db->registerSchema($myPluginSchema);
+
+$products = $db->product->findMany(['where' => ['active' => true]]);
+$posts = $db->post->findMany(['where' => ['post_status' => 'publish']]);
+```
+
+Plasma does not replace WordPress permissions, hooks, entity APIs, or cache invalidation. Prefer WordPress APIs for core-entity writes when those lifecycle semantics matter. [WordPress guide →](docs/adapters/wpdb-adapter.md)
 
 ## Model metadata — from PHP or JSON
 
@@ -116,7 +143,7 @@ const where = formatQuery(query, 'prisma');
 // Send JSON.stringify({ where }) to your application's authenticated endpoint.
 ```
 
-After authentication, authorization, table/field allowlisting, and payload validation, your PHP endpoint can pass the supported filter subset to Plasma:
+After authentication/authorization and selecting an allowed model, your PHP endpoint can pass the supported filter subset to Plasma. Schema-backed models validate field names before compiling SQL:
 
 ```php
 $rows = $db->product->findMany([

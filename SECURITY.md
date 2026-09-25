@@ -6,7 +6,7 @@ Plasma is an early-stage database library, not an API authorization system or a 
 
 Trusted PHP code chooses adapters, tables, schema sources, and raw SQL. Authentication, authorization, row-level access, table/field allowlists, HTTP validation, page-size limits, and request-size limits belong to the application.
 
-Schemas do not restrict access to undeclared tables or fields. Reject unsupported filter features; do not replace failed filters with an empty `where`. Unknown operators and malformed options raise exceptions. Defaults bound filter depth, visited nodes, and membership-list size.
+Schema-backed models reject undeclared fields, but schemas do not restrict trusted PHP code from opening undeclared dynamic tables. Authentication, authorization, and model/table selection still belong to the application. Reject unsupported filter features; do not replace failed filters with an empty `where`. Unknown operators and malformed options raise exceptions. Defaults bound filter depth, visited nodes, and membership-list size.
 
 Update/delete accept only nonempty scalar equality filters. They do not accept recursive read predicates. Raw SQL and `reset()` are privileged operations; never expose them to arbitrary client input. `reset()` is a destructive MySQL-specific development helper, not a migration engine.
 

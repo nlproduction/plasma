@@ -68,7 +68,9 @@ class Model
     array $relations = [],
     array $fieldTypes = []
   ) {
-    $this->table = Sql::table($table, $adapter->getPrefix());
+    // Validate now, but preserve logical/absolute table metadata until the adapter boundary.
+    Sql::table($table, $adapter->getPrefix());
+    $this->table = $table;
     $this->adapter = $adapter;
     $this->primaryKey = Sql::identifier($primaryKey);
     $this->relations = $relations;
@@ -125,8 +127,7 @@ class Model
         throw new \InvalidArgumentException('Per-parent relation pagination is not supported.');
       }
     }
-    $builder = new QueryBuilder($this->table, $this->adapter);
-    $results = $builder->execute($options);
+    $results = $this->queryBuilder()->execute($options);
 
     if (!empty($options['include']) && !empty($results)) {
       $results = $this->loadRelations($results, $options['include']);
@@ -174,6 +175,7 @@ class Model
   public function create(array $data): array
   {
     $insertData = $data['data'] ?? $data;
+    $this->assertKnownFields($insertData);
     $insertData = $this->serializeRow($insertData);
 
     $result = $this->adapter->insert($this->table, $insertData);
@@ -208,6 +210,8 @@ class Model
   public function update(array $options): int
   {
     Sql::equalityWhere($options['where'] ?? []);
+    $this->assertKnownFields($options['where'] ?? []);
+    $this->assertKnownFields($options['data'] ?? []);
     if (empty($options['data'])) {
       return 0;
     }
@@ -251,6 +255,7 @@ class Model
   {
     $whereClause = $where['where'] ?? $where;
     Sql::equalityWhere($whereClause);
+    $this->assertKnownFields($whereClause);
 
     $result = $this->adapter->delete($this->table, $whereClause);
 
@@ -279,8 +284,7 @@ class Model
    */
   public function count(array $options = []): int
   {
-    $builder = new QueryBuilder($this->table, $this->adapter);
-    return $builder->count($options);
+    return $this->queryBuilder()->count($options);
   }
 
   /**
@@ -432,6 +436,25 @@ class Model
     }
 
     return new Model($relatedTable, $this->adapter);
+  }
+
+
+  private function queryBuilder(): QueryBuilder
+  {
+    $allowedFields = $this->fieldTypes === [] ? null : array_keys($this->fieldTypes);
+    return new QueryBuilder($this->table, $this->adapter, [], $allowedFields);
+  }
+
+  private function assertKnownFields(array $values): void
+  {
+    if ($this->fieldTypes === []) {
+      return;
+    }
+    foreach ($values as $field => $_) {
+      if (!is_string($field) || !array_key_exists($field, $this->fieldTypes)) {
+        throw new \InvalidArgumentException('Unknown field for schema-backed model: ' . (string) $field);
+      }
+    }
   }
 
   /**

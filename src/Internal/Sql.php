@@ -5,6 +5,8 @@ namespace Plasma\Internal;
 /** @internal Shared SQL boundary checks; not an authorization policy. */
 final class Sql
 {
+    private const ABSOLUTE_TABLE_PREFIX = '__PLASMA_ABSOLUTE__';
+
     public static function identifier(string $name): string
     {
         if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $name)) {
@@ -18,8 +20,16 @@ final class Sql
         return '`' . self::identifier($name) . '`';
     }
 
+    public static function absoluteTable(string $name): string
+    {
+        return self::ABSOLUTE_TABLE_PREFIX . self::identifier($name);
+    }
+
     public static function table(string $name, string $prefix): string
     {
+        if (strpos($name, self::ABSOLUTE_TABLE_PREFIX) === 0) {
+            return self::identifier(substr($name, strlen(self::ABSOLUTE_TABLE_PREFIX)));
+        }
         if (strpos($name, '__PREFIX__') === 0) {
             $name = $prefix . substr($name, 10);
         } elseif ($prefix !== '' && strpos($name, $prefix) !== 0) {

@@ -7,7 +7,8 @@ use Plasma\Plasma;
 /**
  * Optional WordPress convenience singleton for Plasma.
  *
- * The host application supplies schema paths and its logical table prefix.
+ * WordPress core metadata is loaded automatically by WpdbAdapter.
+ * The host application may add its own schema sources and logical table prefix.
  * Example: DB::configure([$schema], 'mapsvg_').
  */
 class DB
@@ -21,7 +22,7 @@ class DB
   private static string $tablePrefix = '';
 
   /**
-   * @param array $schemaPaths Absolute paths to schema.json files
+   * @param array $schemaPaths Additional JSON paths and/or PHP schema arrays
    * @param string $tablePrefix Prefix after the WordPress prefix, e.g. "mapsvg_"
    */
   public static function configure(array $schemaPaths = [], string $tablePrefix = ''): void

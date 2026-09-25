@@ -15,7 +15,7 @@ use Plasma\Plasma;
 $base = new PdoAdapter(['dsn' => 'sqlite::memory:', 'prefix' => 'runtime_']);
 $base->query('CREATE TABLE runtime_items (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, active INTEGER)');
 $db = (new Plasma(new EventDatabaseAdapter($base)))->registerSchema([
-    'item' => ['table' => 'items', 'fields' => ['id' => ['type' => 'int'], 'active' => ['type' => 'boolean']]],
+    'item' => ['table' => 'items', 'fields' => ['id' => ['type' => 'int'], 'name' => ['type' => 'string'], 'active' => ['type' => 'boolean']]],
 ]);
 $db->item->create(['name' => 'literal %s', 'active' => false]);
 $row = $db->item->findFirst(['where' => ['name' => ['contains' => '%s']]]);
