@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 — 2026-09-25 — bulk writes, distinct values, and statement execution
+## Unreleased — bulk writes, distinct values, and statement execution
 
 ### Added
 
