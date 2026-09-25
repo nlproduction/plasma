@@ -47,7 +47,7 @@ Install from the public GitHub repository through Composer:
 
 ```bash
 composer config repositories.plasma vcs https://github.com/nlproduction/plasma
-composer require nlproduction/plasma:^0.2
+composer require nlproduction/plasma:^0.3
 ```
 
 The VCS repository entry is required until the package is listed on Packagist. End users of a packaged WordPress plugin do not need Composer: run it during your build and ship the production `vendor/` directory.
