@@ -2,7 +2,7 @@
 
 Open focused issues and pull requests with a reproducible query and expected behavior. Keep changes independent of any application framework.
 
-Use PHP 8.1+ for the Pest development suite and install the PDO SQLite driver:
+Use PHP 8.2+ for the Pest development suite and install the PDO SQLite driver:
 
 ```bash
 composer install
