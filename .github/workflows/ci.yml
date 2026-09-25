@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sqlite:
+    name: PHP ${{ matrix.php }} / SQLite
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite, mbstring, dom, xml, xmlwriter
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: composer validate --strict
+      - run: find src tests examples -name '*.php' -print0 | xargs -0 -n1 php -l
+      - run: composer test
+      - run: php examples/sqlite.php
+
+  runtime:
+    name: PHP 7.4 runtime
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          extensions: pdo_sqlite
+          coverage: none
+      - run: find src -name '*.php' -print0 | xargs -0 -n1 php -l
+      - run: php tests/runtime.php
+
+  databases:
+    name: PHP 8.3 / ${{ matrix.database }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        database: ['mysql:8.0', 'mariadb:10.11']
+    services:
+      database:
+        image: ${{ matrix.database }}
+        env:
+          MYSQL_DATABASE: plasma_ci
+          MYSQL_ROOT_PASSWORD: disposable_ci_password
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pdisposable_ci_password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, pdo_sqlite, mbstring, dom, xml, xmlwriter
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: vendor/bin/pest tests/Integration/DatabaseTest.php
+        env:
+          PLASMA_TEST_DSN: mysql:host=127.0.0.1;port=${{ job.services.database.ports[3306] }};dbname=plasma_ci;charset=utf8mb4
+          PLASMA_TEST_USER: root
+          PLASMA_TEST_PASSWORD: disposable_ci_password
