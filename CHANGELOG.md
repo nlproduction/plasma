@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Accept digit-leading WordPress table prefixes, including multisite site prefixes, while retaining identifier injection checks.
+
 ## 0.2.0 — 2026-09-25 — WordPress core schema
 
 ### Added
