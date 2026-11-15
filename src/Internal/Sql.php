@@ -9,7 +9,9 @@ final class Sql
 
     public static function identifier(string $name): string
     {
-        if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $name)) {
+        // WordPress $table_prefix may start with a digit. Keep the existing
+        // conservative rejection of all-digit names and unsafe characters.
+        if (!preg_match('/^(?!\d+$)[A-Za-z0-9_]+$/D', $name)) {
             throw new \InvalidArgumentException('Invalid SQL identifier.');
         }
         return $name;

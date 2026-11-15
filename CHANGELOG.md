@@ -12,6 +12,7 @@
 
 ### Improved
 
+- Accept WordPress `$table_prefix` values that start with a digit. Identifier validation still rejects injection payloads and all-digit names.
 - Forward adapter-provided default schemas through event decorators, preserving bundled WordPress models.
 - Emit dedicated `statement` database events for `execute()` calls.
 - Route reset/DDL paths and examples through `execute()` instead of treating statements as row queries.
